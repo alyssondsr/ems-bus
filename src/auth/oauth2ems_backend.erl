@@ -168,12 +168,13 @@ verify_scope(RegScope, Scope , _) ->
 
     
 % função criada pois a biblioteca OAuth2 não trata refresh_tokens
+
 authorize_refresh_token(Client, RefreshToken, Scope) ->
     case authenticate_client(Client, []) of
         {error, _}      -> {error, invalid_client};
         {ok, {_, C}} -> 
 			case resolve_refresh_token(RefreshToken, []) of
-				{error, _}=E           -> E;
+				{error, _} = E           -> E;
 				{ok, {_, GrantCtx}} -> 
 					case verify_client_scope(C, Scope, []) of
 						{error, _}           -> {error, invalid_scope};
