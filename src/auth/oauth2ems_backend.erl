@@ -101,19 +101,19 @@ associate_access_token(AccessToken, Context, _) ->
 resolve_access_code(AccessCode, _) ->
 	case get(?ACCESS_CODE_TABLE, AccessCode) of
         {ok,Value} -> 	{ok,{[],Value}};
-        Error -> {error, invalid_code} 
+        _Error -> {error, invalid_code} 
     end.
 
 resolve_refresh_token(RefreshToken, _AppContext) ->
     case get(?REFRESH_TOKEN_TABLE, RefreshToken) of
        {ok,Value} -> {ok,{[],Value}};
-        Error -> {error, invalid_token} 
+        _Error -> {error, invalid_token} 
     end.
 
 resolve_access_token(AccessToken, _) ->
     case get(?ACCESS_TOKEN_TABLE, AccessToken) of
        {ok,Value} -> {ok,{[],Value}};
-        Error -> {error, invalid_token} 
+        _Error -> {error, invalid_token} 
     end.
 
 revoke_access_code(AccessCode, _AppContext) ->
@@ -163,7 +163,7 @@ verify_client_scope(#client{codigo = ClientID},Scope, _) ->
 verify_resowner_scope(_ResOwner, Scope, _) ->
     {ok, {[],Scope}}.
 
-verify_scope(RegScope, Scope , _) ->
+verify_scope(_RegScope, Scope , _) ->
     {ok, {[],Scope}}.
 
     
