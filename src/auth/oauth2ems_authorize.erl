@@ -2,6 +2,7 @@
 
 -export([execute/1]).
 -export([code_request/1]).
+-export([implicit_token_request/1]).
 
 -include("include/ems_config.hrl").
 -include("include/ems_schema.hrl").
@@ -82,7 +83,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 											}
 						}
 					};
-				Error ->
+				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
 					% mudar code para 302
 					{ok, Request#request{code = 200, 
@@ -94,7 +95,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 					}
 				end;
 			
-		Error ->
+		_ ->
 			LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
 			{ok, Request#request{code = 302, 
 						 response_data = <<"{}">>,
@@ -104,6 +105,52 @@ code_request(Request = #request{authorization = Authorization}) ->
 						}
 			}
 		end.
+implicit_token_request(Request = #request{authorization = Authorization}) ->
+    ClientId    = ems_request:get_querystring(<<"client_id">>, [],Request),
+    RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, [],Request),
+    State      = ems_request:get_querystring(<<"state">>, [],Request),
+    Scope       = ems_request:get_querystring(<<"scope">>, [],Request),
+    case ems_http_util:parse_basic_authorization_header(Authorization) of
+		{ok, Username, Password} ->
+		    Authz = oauth2:authorize_code_request({Username,list_to_binary(Password)}, ClientId, RedirectUri, Scope, []),
+			case issue_token(Authz) of
+				{ok, Response} ->
+					Token = element(2,lists:nth(1,Response)),
+					Ttl = element(4,lists:nth(1,Response)),
+					Type = element(10,lists:nth(1,Response)),
+
+					LocationPath = <<RedirectUri/binary,"?token=", Token/binary,"&state=",State/binary,"&token_type=",Type/binary,"&expires_in=",Ttl/binary>>,
+					% mudar code para 302
+					{ok, Request#request{code = 200, 
+						response_data = <<"{}">>,
+						response_header = #{
+											<<"location">> => LocationPath
+											}
+						}
+					};
+				_ ->
+					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
+					% mudar code para 302
+					{ok, Request#request{code = 200, 
+						 response_data = <<"{}">>,
+						 response_header = #{
+												<<"location">> => LocationPath
+											}
+						}
+					}
+				end;
+			
+		_ ->
+			LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
+			{ok, Request#request{code = 302, 
+						 response_data = <<"{}">>,
+						 response_header = #{
+												<<"location">> => LocationPath
+											}
+						}
+			}
+		end.
+
 
 	
 %%%===================================================================
@@ -153,7 +200,7 @@ password_grant(Request) ->
 authorization_request(Request) ->
     %Scope       = ems_request:get_querystring(<<"scope">>, [],Request),
     ClientId    = ems_request:get_querystring(<<"client_id">>, <<>>, Request),
-    State    = ems_request:get_querystring(<<"state">>, <<>>, Request),
+    %State    = ems_request:get_querystring(<<"state">>, <<>>, Request),
     RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, <<>>, Request),
     Resposta = case oauth2ems_backend:verify_redirection_uri(ClientId, RedirectUri, []) of
 		{ok,_} -> 	{redirect, ClientId, RedirectUri};
@@ -198,11 +245,12 @@ access_token_request(Request = #request{authorization = Authorization}) ->
 			Authz = oauth2:authorize_code_grant({ClientId, ClientSecret}, Code, RedirectUri, []),
 			issue_token_and_refresh(Authz)
 		end.  
-
 		
 
 issue_token({ok, {_, Auth}}) ->
 	{ok, {_, Response}} = oauth2:issue_token(Auth, []),
+	io:format("\n________\n Response: ~p \n________\n",[Response]),
+	io:format("\n________\n oauth2_response:to_proplist(Response): ~p \n________\n",[oauth2_response:to_proplist(Response)]),
 	{ok, oauth2_response:to_proplist(Response)};
 issue_token(Error) ->
     Error.
@@ -210,6 +258,8 @@ issue_token(Error) ->
 
 issue_token_and_refresh({ok, {_, Auth}}) ->
 	{ok, {_, Response}} = oauth2:issue_token_and_refresh(Auth, []),
+	io:format("\n________\n Response: ~p \n________\n",[Response]),
+	io:format("\n________\n oauth2_response:to_proplist(Response): ~p \n________\n",[oauth2_response:to_proplist(Response)]),
 	{ok, oauth2_response:to_proplist(Response)};
 issue_token_and_refresh(Error) ->
     Error.
