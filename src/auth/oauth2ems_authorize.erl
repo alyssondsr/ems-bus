@@ -69,14 +69,14 @@ code_request(Request = #request{authorization = Authorization}) ->
     State      = ems_request:get_querystring(<<"state">>, [],Request),
     Scope       = ems_request:get_querystring(<<"scope">>, [],Request),
     case ems_http_util:parse_basic_authorization_header(Authorization) of
-		{ok, Username, Password} ->
-		    Authz = oauth2:authorize_code_request({Username,list_to_binary(Password)}, ClientId, RedirectUri, Scope, []),
+		{ok, User, Passwd} ->
+		    Authz = oauth2:authorize_code_request({User,list_to_binary(Passwd)}, ClientId, RedirectUri, Scope, []),
 			case issue_code(Authz) of
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
 					LocationPath = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 200, 
+					{ok, Request#request{code = 302, 
 						response_data = <<"{}">>,
 						response_header = #{
 											<<"location">> => LocationPath
@@ -86,7 +86,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 200, 
+					{ok, Request#request{code = 302, 
 						 response_data = <<"{}">>,
 						 response_header = #{
 												<<"location">> => LocationPath
@@ -97,13 +97,32 @@ code_request(Request = #request{authorization = Authorization}) ->
 			
 		_ ->
 			LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-			{ok, Request#request{code = 302, 
+			Username = ems_request:get_querystring(<<"username">>, <<>>, Request),
+			Password = ems_request:get_querystring(<<"password">>, <<>>, Request),
+		    Authz = oauth2:authorize_code_request({Username,Password}, ClientId, RedirectUri, Scope, []),
+			case issue_code(Authz) of
+				{ok, Response} ->
+					Code = element(2,lists:nth(1,Response)),
+					Location = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
+					% mudar code para 302
+					{ok, Request#request{code = 302, 
+						response_data = <<"{}">>,
+						response_header = #{
+											<<"location">> => Location
+											}
+						}
+					};
+				_ ->
+					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
+					% mudar code para 302
+					{ok, Request#request{code = 302, 
 						 response_data = <<"{}">>,
 						 response_header = #{
 												<<"location">> => LocationPath
 											}
 						}
-			}
+					}
+				end
 		end.
 implicit_token_request(Request = #request{authorization = Authorization}) ->
     ClientId    = ems_request:get_querystring(<<"client_id">>, [],Request),
@@ -198,9 +217,7 @@ password_grant(Request) ->
 
     
 authorization_request(Request) ->
-    %Scope       = ems_request:get_querystring(<<"scope">>, [],Request),
     ClientId    = ems_request:get_querystring(<<"client_id">>, <<>>, Request),
-    %State    = ems_request:get_querystring(<<"state">>, <<>>, Request),
     RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, <<>>, Request),
     Resposta = case oauth2ems_backend:verify_redirection_uri(ClientId, RedirectUri, []) of
 		{ok,_} -> 	{redirect, ClientId, RedirectUri};
@@ -249,8 +266,6 @@ access_token_request(Request = #request{authorization = Authorization}) ->
 
 issue_token({ok, {_, Auth}}) ->
 	{ok, {_, Response}} = oauth2:issue_token(Auth, []),
-	io:format("\n________\n Response: ~p \n________\n",[Response]),
-	io:format("\n________\n oauth2_response:to_proplist(Response): ~p \n________\n",[oauth2_response:to_proplist(Response)]),
 	{ok, oauth2_response:to_proplist(Response)};
 issue_token(Error) ->
     Error.
@@ -258,8 +273,6 @@ issue_token(Error) ->
 
 issue_token_and_refresh({ok, {_, Auth}}) ->
 	{ok, {_, Response}} = oauth2:issue_token_and_refresh(Auth, []),
-	io:format("\n________\n Response: ~p \n________\n",[Response]),
-	io:format("\n________\n oauth2_response:to_proplist(Response): ~p \n________\n",[oauth2_response:to_proplist(Response)]),
 	{ok, oauth2_response:to_proplist(Response)};
 issue_token_and_refresh(Error) ->
     Error.

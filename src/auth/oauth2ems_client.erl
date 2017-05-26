@@ -4,19 +4,33 @@
 -include("../include/ems_schema.hrl").
 
 callback(Request) -> 
-	Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
-											io:format("\n Code = ~p \n",[Code]),
 
-	Client = {<<"q1w2e3">>,<<"123456">>},
-	RedirectUri = <<"https://127.0.0.1:2302/callback">>,
-	Authorization = oauth2:authorize_code_grant(Client, Code, RedirectUri, []),
-	io:format("\n Authorization = ~p \n",[Authorization]),
-
-    {ok,ResponseData} = issue_token_and_refresh(Authorization),
-	ResponseData2 = ems_schema:prop_list_to_json(ResponseData),
-	{ok, Request#request{code = 200, 
-		 response_data = ResponseData2}
-	}.  
+	Error = ems_request:get_querystring(<<"error">>, <<>>, Request),
+	case Error == <<"access_denied">> of
+		true ->
+			{ok, Request#request{code = 401, 
+				response_data = "{error: access_denied}"}
+			};
+		false -> 
+			Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
+			Client = {<<"q1w2e3">>,<<"123456">>},
+			RedirectUri = <<"https://164.41.120.42:2302/callback">>,
+			%io:format("\n******************************\n oauth2:authorize_code_grant(~s, ~s, ~s, <<>>),  \n******************************\n", [Client,Code,RedirectUri]),
+			Authorization = oauth2:authorize_code_grant(Client, Code, RedirectUri, <<>>),
+			case Authorization of 
+				{ok,_} ->
+					{ok,ResponseData} = issue_token_and_refresh(Authorization),
+					ResponseData2 = ems_schema:prop_list_to_json(ResponseData),
+					{ok, Request#request{code = 200, 
+						response_data = ResponseData2}
+					};
+				_ ->
+					%ResponseData = ems_schema:to_json(Error),
+					{ok, Request#request{code = 401, 
+						response_data = "{error: invalid_authz}"}
+					}
+			end
+		end.
 
 
 
