@@ -53,7 +53,7 @@ start() ->
     application:set_env(oauth2, backend, oauth2ems_backend),
     ems_user:insert(#user{login= <<"geral">>,password= ems_util:criptografia_sha1("123456")}),
     ems_user:insert(#user{login= <<"alyssondsr">>,password=ems_util:criptografia_sha1("123456")}),
-    ems_client:insert(#client{codigo= <<"q1w2e3">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.42:2302/callback">>, scope= <<"email">>}),
+    ems_client:insert(#client{codigo= <<"q1w2e3">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://127.0.0.1:2302/callback">>, scope= <<"email">>}),
     ems_client:insert(#client{codigo= <<"man">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://www.getpostman.com/oauth2/callback">>, scope= <<"email">>}),
     lists:foreach(fun(Table) ->
                           ets:new(Table, [named_table, public])
@@ -96,7 +96,6 @@ associate_refresh_token(RefreshToken, Context, _) ->
     {put(?REFRESH_TOKEN_TABLE, RefreshToken, Context), Context}.
 
 associate_access_token(AccessToken, Context, _) ->
-	io:format("\n_____________________________\n  oauth2ems_back.erl \n_________________________\n"),
     {put(?ACCESS_TOKEN_TABLE, AccessToken, Context), Context}.
 
 resolve_access_code(AccessCode, _) ->
