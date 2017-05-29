@@ -128,11 +128,11 @@ set_force_load_users_checkpoint() ->
 
 update_or_load_users(State = #state{datasource = Datasource,
 									last_update = LastUpdate}) ->
-	NextUpdate = calendar:local_time(),
+	NextUpdate = ems_util:date_dec_minute(calendar:local_time(), 6), % garante que os dados serão atualizados mesmo que as datas não estejam sincronizadas
 	TimestampStr = ems_util:timestamp_str(),
 	case is_empty() orelse LastUpdate == undefined of
 		true -> 
-			ems_logger:info("ems_user_loader checkpoint. operation: load_users."),
+			?DEBUG("ems_user_loader checkpoint. operation: load_users."),
 			case load_users_from_datasource(Datasource, TimestampStr, State) of
 				ok -> 
 					ems_db:set_param(<<"ems_user_loader_lastupdate">>, NextUpdate),
@@ -151,7 +151,6 @@ update_or_load_users(State = #state{datasource = Datasource,
 					ems_user_permission_loader:update_or_load_permissions(),
 					{ok, State2};
 				_ -> 
-					ems_user_permission_loader:update_or_load_permissions(),
 					{error, State}
 			end
 	end.
@@ -161,7 +160,7 @@ load_users_from_datasource(Datasource, CtrlInsert, #state{allow_load_aluno = All
 	try
 		case ems_odbc_pool:get_connection(Datasource) of
 			{ok, Datasource2} -> 
-				ems_logger:info("ems_user_loader load users from database..."),
+				?DEBUG("ems_user_loader load users from database..."),
 				Result = case ems_odbc_pool:param_query(Datasource2, 
 														sql_load_users_tipo_pessoa(), 
 														[]) of
@@ -171,11 +170,12 @@ load_users_from_datasource(Datasource, CtrlInsert, #state{allow_load_aluno = All
 					{_, _, Records} ->
 						case mnesia:clear_table(user) of
 							{atomic, ok} ->
-								InsertUserPessoa = fun() ->
+								ems_db:init_sequence(user, 0),
+								InsertUserPessoaFunc = fun() ->
 									Count = insert_users(Records, 0, CtrlInsert),
 									ems_logger:info("ems_user_loader load ~p users tipo pessoa.", [Count])
 								end,
-								mnesia:ets(InsertUserPessoa),
+								mnesia:activity(transaction, InsertUserPessoaFunc),
 								case AllowLoadAluno of
 									true ->
 										case ems_odbc_pool:param_query(Datasource2, 
@@ -185,22 +185,22 @@ load_users_from_datasource(Datasource, CtrlInsert, #state{allow_load_aluno = All
 												?DEBUG("ems_user_loader did not load any users tipo aluno."),
 												ok;
 											{_, _, Records} ->
-												InsertUserAluno = fun() ->
+												InsertUserAlunoFunc = fun() ->
 													Count = insert_users(Records, 0, CtrlInsert),
 													ems_logger:info("ems_user_loader load ~p users tipo aluno.", [Count])
 												end,
-												mnesia:ets(InsertUserAluno),
-												mnesia:change_table_copy_type(user, node(), disc_copies),
-												erlang:garbage_collect(),
+												mnesia:activity(transaction, InsertUserAlunoFunc),
 												ok;
 											{error, Reason} = Error -> 
 												ems_logger:error("ems_user_loader load users query error: ~p.", [Reason]),
 												Error
 										end;
 									false -> ok
-								end;
+								end,
+								erlang:garbage_collect(),
+								ok;
 							_ ->
-								ems_logger:error("Could not clear user table before load users. Load users cancelled!"),
+								ems_logger:error("ems_user_loader could not clear user table before load users. Load users cancelled!"),
 								{error, efail_load_users}
 						end;
 					{error, Reason} = Error -> 
@@ -225,7 +225,7 @@ update_users_from_datasource(Datasource, LastUpdate, CtrlUpdate, #state{allow_lo
 			{ok, Datasource2} -> 
 				?DEBUG("ems_user_loader got a connection ~p to update users.", [Datasource#service_datasource.id]),
 				{{Year, Month, Day}, {Hour, Min, _}} = LastUpdate,
-				% Zera os segundos para trazer todos os registros alterados no intervalor de 1 min
+				% Zera os segundos
 				DateInitial = {{Year, Month, Day}, {Hour, Min, 0}},
 				Params = [{sql_timestamp, [DateInitial]},
 						  {sql_timestamp, [DateInitial]},
@@ -321,7 +321,7 @@ insert_users([{Codigo, Login, Name, Cpf, Email, Password, Type, PasswdCrypto,
 				 active = Active == 1,
 				 ctrl_insert = CtrlInsert},
 	%?DEBUG("User  ~p\n", [User]),
-	mnesia:dirty_write(User),
+	mnesia:write(User),
 	insert_users(T, Count+1, CtrlInsert).
 
 
@@ -472,7 +472,7 @@ sql_load_users_tipo_pessoa() ->
 				   lf.Centro as LotacaoCentro,
 				   lf.Codigo as LotacaoCodigoFuncao,
 				   lf.Funcao as LotacaoFuncao,
-				   lf.Órgão as LotacaoOrgao,
+				   '' as LotacaoOrgao,
 				   lf.Cod as LotacaoCodigoCargo,
 				   lf.Cargo as LotacaoCargo
 			from BDAcesso.dbo.TB_Usuario u join BDPessoa.dbo.TB_Pessoa p
@@ -627,7 +627,7 @@ sql_update_users_tipo_pessoa() ->
 				   lf.Centro as LotacaoCentro,
 				   lf.Codigo as LotacaoCodigoFuncao,
 				   lf.Funcao as LotacaoFuncao,
-				   lf.Órgão as LotacaoOrgao,
+				   '' as LotacaoOrgao,
 				   lf.Cod as LotacaoCodigoCargo,
 				   lf.Cargo as LotacaoCargo
 			from BDAcesso.dbo.TB_Usuario u join BDPessoa.dbo.TB_Pessoa p
