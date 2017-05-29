@@ -2,6 +2,11 @@
 
 -export([callback/1]).
 -include("../include/ems_schema.hrl").
+-define(REDIRECT_URI, <<"http://127.0.0.1:2301/callback">>).
+-define(CLIENTID, <<"q1w2e3">>).
+-define(SECRET, <<"123456">>).
+-define(ACCESS_TOKEN_URL, "https://127.0.0.1:2302/authorize").
+-define(SERVICO, "https://localhost:2302/netadm/info").
 
 callback(Request) -> 
 
@@ -13,27 +18,33 @@ callback(Request) ->
 			};
 		false -> 
 			Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
-			Client = {<<"q1w2e3">>,<<"123456">>},
-			RedirectUri = <<"https://127.0.0.1:2302/callback">>,
-			Authorization = oauth2:authorize_code_grant(Client, Code, RedirectUri, <<>>),
-			case issue_token_and_refresh(Authorization) of 
-				{ok,ResponseData} ->
-					ResponseData2 = ems_schema:prop_list_to_json(ResponseData),
-					{ok, Request#request{code = 200, 
-						response_data = ResponseData2}
-					};
-				Error ->
-					ResponseData = ems_schema:to_json(Error),
-					{ok, Request#request{code = 401, 
-						response_data = "{error: }"}
-					}
-			end
-		end.
+			RedirectUri = ?REDIRECT_URI,
+			Auth = base64:encode(<<?CLIENTID/binary, ":", ?SECRET/binary>>),
+			Authz = <<"Basic ", Auth/binary>>,
+			Authorization = binary:bin_to_list(Authz),
+			Databin =  <<"grant_type=authorization_code&code=", Code/binary, "&redirect_uri=", ?REDIRECT_URI/binary>>,
+			Data = binary:bin_to_list(Databin),			
+
+			{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = 
+				httpc:request(post,{?ACCESS_TOKEN_URL, [{"Authorization", Authorization}], "application/x-www-form-urlencoded",Data}, [], []),
+			io:format("\n________________\n ~s \n________________\n",[Body]),
+			Teste = jiffy:decode(Body),
+
+			AccessToken = lists:keyfind(<<"access_token">>,1, Teste),
+            RefreshToken = proplists:get_value(<<"scope">>, Teste),
+   			io:format("\n________________\n ~s \n________________\n",[AccessToken]),
+   			io:format("\n________________\n ~s \n________________\n",[RefreshToken]),
+
+            net_adm(AccessToken)           
+end.
+
+net_adm(Token) ->
+	URLbin =  <<?SERVICO/binary, "?access_token=", Token/binary>>,
+	URL = binary:bin_to_list(URLbin),			
+	{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Net}} = 
+		httpc:request(get,{URL, []}, [], []),
+	io:format("\n________________\n ~s \n________________\n",[Net]),
+	Net.	
 
 
 
-issue_token_and_refresh({ok, {_, Auth}}) ->
-	{ok, {_, Response}} = oauth2:issue_token_and_refresh(Auth, []),
-	{ok, oauth2_response:to_proplist(Response)};
-issue_token_and_refresh(Error) ->
-    Error.
