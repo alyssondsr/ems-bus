@@ -33,18 +33,14 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 		
 			% comentado temporariamente
 			%ResponseData2 = ems_schema:prop_list_to_json(ResponseData),
-			
 			%UserResponseData = lists:keyfind(<<"resource_owner">>, 1, ResponseData),
-			
 			%PublicKey = ems_util:open_file(?SSL_PATH ++  "/" ++ binary_to_list(<<"public_key.pem">>)),
-			
 			%CryptoText = ems_util:encrypt_public_key(ResponseData2,PublicKey),
-			
 			%CryptoBase64 = base64:encode(CryptoText),
-		
 			%{ok, Request#request{code = 200, 
 			%					 response_data = ems_schema:prop_list_to_json([UserResponseData,{<<"authorization">>,CryptoBase64}])}
 			%};
+		
 		{redirect, ClientId, RedirectUri} ->
 			LocationPath = iolist_to_binary([Protocol,<<"://"/utf8>>, Host, <<":">>,list_to_binary(integer_to_list(Port)),<<"/login/index.html?response_type=code&client_id=">>, ClientId, <<"&redirect_uri=">>, RedirectUri]),
 			{ok, Request#request{code = 302, 
@@ -76,7 +72,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 					Code = element(2,lists:nth(1,Response)),
 					LocationPath = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 200, 
+					{ok, Request#request{code = 302, 
 						response_data = <<"{}">>,
 						response_header = #{
 											<<"location">> => LocationPath
@@ -86,7 +82,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 200, 
+					{ok, Request#request{code = 302, 
 						 response_data = <<"{}">>,
 						 response_header = #{
 												<<"location">> => LocationPath
