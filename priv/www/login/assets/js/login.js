@@ -153,9 +153,18 @@ Login.LoginSistemas = (function() {
 	
 	LoginSistemas.prototype.iniciar = function() {
 		this.botaoLogin.on('click', onBotaoLoginClick.bind(this));
+		this.username.on('focus', onRemoveDiv.bind(this));
+		this.pass.on('focus', onRemoveDiv.bind(this));
 	}
 	
-	function onBotaoLoginClick() {
+	function onBotaoLoginClick(e) {
+		if($('#username').val() == "" || $('#pass').val() == ""){
+			onRemoveDiv();
+			this.error.append('<div id="validate" class="alert alert-danger" role="alert">O login e a senha devem ser preenchidos.</div>');
+			return;
+		}
+		var urlBase = '';
+		
 		var protocol=window.location.protocol;
 		if (protocol == 'http:'){
 			var port=':2301';
@@ -163,11 +172,14 @@ Login.LoginSistemas = (function() {
 			var port=':2302';
 		}
 		var baseUrl=protocol + '//' + window.location.hostname + port; 
-		$.ajax({
-			url: baseUrl + '/code_request?'+
+		//alert("baseUrl=" + protocol + '//' + window.location.hostname + port);
+		var url=baseUrl + '/code_request?'+
 				 'client_id='+getRdirectUri()['client_id']+
 				 '&state='+getRdirectUri()['state']+
-				 '&redirect_uri='+getRdirectUri()['redirect_uri'],
+				 '&redirect_uri='+getRdirectUri()['redirect_uri'];
+		alert("url: "+ url);
+		$.ajax({
+			url: url,
 			crossDomain: true,
 			contentType: 'application/json',
 			beforeSend: function (xhr) {
@@ -178,30 +190,55 @@ Login.LoginSistemas = (function() {
 				  'name-api-key':'ewf45r4435trge',
 				  'Content-Type':'application/x-www-form-urlencoded'
 		    },			
-			error: onErroSalvandoEstilo.bind(this),
-			success: function(data, textStatus){
-				var doc = document;
+			error:  onErroSalvandoEstilo.bind(this),
+			success: function(data, textStatus, headers){
 				if (data.redirect) {
+					alert("data.redirect: "+ data.redirect);
 					// data.redirect contains the string URL to redirect to
 					window.location.href = data.redirect;
 				}
+				
 
 			},
 			complete: function(data, textStatus) {
 				window.location.href = data.getResponseHeader("Location");
-			  }
+				//alert("succcess "+ textStatus);
+				//if(textStatus == 'success'){
+					//alert("referer is "+ document.referrer);
+					//urlBase = document.referrer;
+					//urlBase = urlBase.split('/');
+
+					//url=data.getResponseHeader("Location");
+					//alert("data.url:"+ url);
+					//alert("array: "+ urlBase);
+					
+					//alert("succcess antes: " + url);
+					//alert("succcess depois: " + data.getResponseHeader("Location"));
+					
+					//window.location.href=url;
+				//}
+			}
 
 		});
 	}
 	
 	//erro na autenticação
 	function onErroSalvandoEstilo(obj) {
-		this.error.append('<div class="alert alert-danger" role="alert">Usuário ou senha invalido(s).</div>');
+		onRemoveDiv();
+		this.error.append('<div id="validate" class="alert alert-danger" role="alert">Usuário ou senha invalido(s).</div>');
 	}
 	
 	//sucesso na autenticado
 	function onEstiloSalvo(estilo) {
 		this.error.append('<div class="alert alert-danger" role="alert">Ok.</div>');
+	}
+	
+	function onRemoveDiv() {
+		 var divElement = $("#validate");
+		
+		if(divElement != undefined){
+			divElement.remove("#validate");		
+		}
 	}
 	
 	function getRdirectUri(){

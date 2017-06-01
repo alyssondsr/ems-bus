@@ -144,7 +144,7 @@ is_name_querystring_valido(Name) ->
 
 %% @doc Indica se o name da querystring é valido
 is_name_service_valido(Name) ->
-	case re:run(Name, "^[/_a-zA-Z][.:/_a-zA-Z0-9]{0,300}$") of
+	case re:run(Name, "^[/_a-zA-Z-.][.:/_a-zA-Z0-9-]{0,300}$") of
 		nomatch -> false;
 		_ -> true
 	end.
@@ -240,7 +240,7 @@ parse_path_catalog(Path, StaticFilePathList) ->
 	Ch = string:substr(Path, 1, 1),
 	Ch2 = string:substr(Path, 2, 1),
 	case Ch =:= "/" orelse (ems_util:is_letter(Ch) andalso Ch2 =:= ":")   of
-		true -> Path;  
+		true -> ems_util:remove_ult_backslash_url(Path);  
 		false ->
 			case Ch == "~" of
 				true -> 
@@ -250,7 +250,7 @@ parse_path_catalog(Path, StaticFilePathList) ->
 					end;
 				_ -> 
 					case Ch == "." of
-						true -> ?STATIC_FILE_PATH ++ "/" ++ string:substr(Path, 3);
+						true -> ems_util:remove_ult_backslash_url(?STATIC_FILE_PATH ++ "/" ++ string:substr(Path, 3));
 						false -> 
 							Path2 = ems_util:replace_all_vars(Path, StaticFilePathList),
 							% after process variables, check ~ or . wildcards
@@ -262,7 +262,7 @@ parse_path_catalog(Path, StaticFilePathList) ->
 									end;
 								_ -> 
 									case Ch == "." of
-										true -> ?STATIC_FILE_PATH ++ "/" ++ string:substr(Path2, 3);
+										true -> ems_util:remove_ult_backslash_url(?STATIC_FILE_PATH ++ "/" ++ string:substr(Path2, 3));
 										false ->  Path2
 									end
 							end

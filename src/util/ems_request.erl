@@ -218,13 +218,12 @@ get_querystring(QueryName, Default, #request{querystring_map = QuerystringMap}) 
 
 
 load_from_file_req(Request = #request{url = Url,
-									   if_modified_since = IfModifiedSinceReq, 
-									   if_none_match = IfNoneMatchReq,
-									   timestamp = Timestamp,
-									   service = #service{cache_control = CacheControl,
-														  expires = ExpiresMinute,
-														  path = Path}}) ->
-	
+									  if_modified_since = IfModifiedSinceReq, 
+									  if_none_match = IfNoneMatchReq,
+									  timestamp = Timestamp,
+									  service = #service{cache_control = CacheControl,
+														 expires = ExpiresMinute,
+														 path = Path}}) ->
 	FileName = Path ++ string:substr(Url, string:len(hd(string:tokens(Url, "/")))+2),
 	case file_info(FileName) of
 		{error, Reason} = Error -> 

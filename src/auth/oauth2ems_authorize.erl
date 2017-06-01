@@ -21,7 +21,7 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 			<<"code">> ->	authorization_request(Request);	
 			<<"authorization_code">> ->		access_token_request(Request);
 			<<"refresh_token">> ->	refresh_token_request(Request);	
-			 _ -> {error, invalid_oauth2_typeauth}
+			 _ -> {error, invalid_oauth2_grant}
 	end,  
 	case Result of
 		{ok, ResponseData} ->
@@ -72,7 +72,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 					Code = element(2,lists:nth(1,Response)),
 					LocationPath = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 302, 
+					{ok, Request#request{code = 200, 
 						response_data = <<"{}">>,
 						response_header = #{
 											<<"location">> => LocationPath
@@ -82,7 +82,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 302, 
+					{ok, Request#request{code = 400, 
 						 response_data = <<"{}">>,
 						 response_header = #{
 												<<"location">> => LocationPath
@@ -101,7 +101,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 					Code = element(2,lists:nth(1,Response)),
 					Location = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 302, 
+					{ok, Request#request{code = 200, 
 						response_data = <<"{}">>,
 						response_header = #{
 											<<"location">> => Location
@@ -111,7 +111,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 302, 
+					{ok, Request#request{code = 400, 
 						 response_data = <<"{}">>,
 						 response_header = #{
 												<<"location">> => LocationPath
