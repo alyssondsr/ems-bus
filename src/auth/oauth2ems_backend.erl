@@ -154,7 +154,7 @@ verify_redirection_uri(ClientId, ClientUri, _) when is_binary(ClientId) ->
 verify_redirection_uri(#client{redirect_uri = RedirUri}, ClientUri, _) ->
     case ClientUri =:= RedirUri of
 		true -> {ok,[]};
-		_Error -> io:format("redirect3 ~p ~p \n", [RedirUri, ClientUri]), {error, error_uri}
+		_Error -> io:format("redirect3 ~p \!= ~p \n", [RedirUri, ClientUri]), {error, error_uri}
     end.
     
 

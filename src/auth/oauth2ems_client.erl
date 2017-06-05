@@ -2,11 +2,12 @@
 
 -export([callback/1]).
 -include("../include/ems_schema.hrl").
--define(REDIRECT_URI, <<"https://127.0.0.1:2302/callback">>).
--define(CLIENTID, <<"q1w2e3">>).
+-define(REDIRECT_URI, <<"https://164.41.120.42:2302/callback">>).
+-define(CLIENTID, <<"teste">>).
 -define(SECRET, <<"123456">>).
--define(ACCESS_TOKEN_URL, "https://127.0.0.1:2302/authorize").
--define(SERVICO, <<"https://127.0.0.1:2302/netadm/info">>).
+-define(ACCESS_TOKEN_URL, "https://164.41.120.43:2302/authorize").
+-define(SERVICO, <<"https://164.41.120.43:2302/netadm/info">>).
+-define(SCOPE, <<"email">>).
 
 %-define(REDIRECT_URI, <<"https://164.41.120.42:2302/callback">>).
 %-define(CLIENTID, <<"43138f88cb30a7b692f0">>).
@@ -28,7 +29,7 @@ callback(Request) ->
 			Auth = base64:encode(<<?CLIENTID/binary, ":", ?SECRET/binary>>),
 			Authz = <<"Basic ", Auth/binary>>,
 			Authorization = binary:bin_to_list(Authz),
-			Databin =  <<"grant_type=authorization_code&code=", Code/binary, "&redirect_uri=", ?REDIRECT_URI/binary>>,
+			Databin =  <<"grant_type=authorization_code&code=", Code/binary, "&redirect_uri=", ?REDIRECT_URI/binary, "&scope=", ?SCOPE/binary>>,
 			Data = binary:bin_to_list(Databin),
 			case request(Authorization,Data) of
 				{ok,Response} ->
@@ -36,10 +37,10 @@ callback(Request) ->
 								 response_data = Response,
 								 content_type = <<"application/json;charset=UTF-8">>}
 				};
-				{error,_} ->
+				{error,Error} ->
 					%ResponseData = ems_schema:to_json(Error),
 					{ok, Request#request{code = 401, 
-								 response_data = <<"{error: access_denied}">>,
+								 response_data = <<"{error:", Error/binary , "}">>,
 								 content_type = <<"application/json;charset=UTF-8">>}
 					}
 				
