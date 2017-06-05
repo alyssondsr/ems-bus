@@ -29,7 +29,7 @@
           </elementProp>
           <elementProp name="client_id" elementType="Argument">
             <stringProp name="Argument.name">client_id</stringProp>
-            <stringProp name="Argument.value">q1w2e3</stringProp>
+            <stringProp name="Argument.value">teste</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="secret" elementType="Argument">
@@ -39,7 +39,7 @@
           </elementProp>
           <elementProp name="redirect_url" elementType="Argument">
             <stringProp name="Argument.name">redirect_url</stringProp>
-            <stringProp name="Argument.value">https://127.0.0.1:2302/callback</stringProp>
+            <stringProp name="Argument.value">https://164.41.120.42:2302/callback</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="state" elementType="Argument">
