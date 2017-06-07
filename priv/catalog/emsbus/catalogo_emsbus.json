@@ -95,7 +95,10 @@
 		"catalog": "/emsbus/auth_oauth2", 
 		"file": "ems_oauth2.json"
 	},
-
+	{
+		"catalog": "/emsbus/auth_oauth1", 
+		"file": "ems_oauth1.json"
+	},
 	{
 		"catalog": "/emsbus/ems_odbc_pool", 
 		"file": "ems_odbc_pool.json"

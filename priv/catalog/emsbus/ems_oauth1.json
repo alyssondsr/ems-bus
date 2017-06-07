@@ -1,0 +1,50 @@
+[
+	{
+		"name" : "/oauth/request_temp_credentials",
+		"comment": "Oauth 1.0a",
+		"owner": "oauth2ems",
+		"version": "1",
+		"service" : "ems_oauth1:serve_oauth_request_token",
+		"url": "/oauth/request_temp_credentials",
+		"type": "GET",
+		"result_cache" : 0,
+		"authorization" : "public",
+		"lang" : "erlang"
+	},
+	{
+		"name" : "/oauth/request_token",
+		"comment": "Oauth 1.0a",
+		"owner": "oauth2ems",
+		"version": "1",
+		"service" : "ems_oauth1:serve_oauth_request_token",
+		"url": "/oauth/request_token",
+		"type": "GET",
+		"result_cache" : 0,
+		"authorization" : "public",
+		"lang" : "erlang"
+	},
+	{
+		"name" : "/oauth/access_token",
+		"comment": "Oauth 1.0a",
+		"owner": "oauth2ems",
+		"version": "1",
+		"service" : "ems_oauth1:serve_oauth_access_token",
+		"url": "/oauth/access_token",
+		"type": "GET",
+		"result_cache" : 0,
+		"authorization" : "public",
+		"lang" : "erlang"
+	},
+	{
+		"name" : "/echo",
+		"comment": "Oauth 1.0a",
+		"owner": "oauth2ems",
+		"version": "1",
+		"service" : "ems_oauth1:serve_echo",
+		"url": "/echo",
+		"type": "GET",
+		"result_cache" : 0,
+		"authorization" : "public",
+		"lang" : "erlang"
+	}
+]
