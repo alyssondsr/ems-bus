@@ -42,12 +42,12 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 			%};
 		
 		{redirect, ClientId, RedirectUri} ->
-			LocationPath = iolist_to_binary([Protocol,<<"://"/utf8>>, Host, <<":">>,list_to_binary(integer_to_list(Port)),<<"/login/index.html?response_type=code&client_id=">>, ClientId, <<"&redirect_uri=">>, RedirectUri]),
+			LocationPath = iolist_to_binary([Protocol,<<"://"/utf8>>, Host, <<":"/utf8>>,list_to_binary(integer_to_list(Port)),<<"/login/index.html?response_type=code&client_id=">>, ClientId, <<"&redirect_uri=">>, RedirectUri]),
 			{ok, Request#request{code = 302, 
-									 response_header = #{
-															<<"location">> => LocationPath
-														}
-									}
+								 response_header = #{
+														<<"location">> => LocationPath
+													}
+								}
 			};
 		Error ->
 			ResponseData = ems_schema:to_json(Error),
@@ -137,6 +137,7 @@ implicit_token_request(Request = #request{authorization = Authorization}) ->
 					LocationPath = <<RedirectUri/binary,"?token=", Token/binary,"&state=",State/binary,"&token_type=",Type/binary,"&expires_in=",Ttl/binary>>,
 					% mudar code para 302
 					{ok, Request#request{code = 200, 
+						%response_data = <<"code=", Code/binary>>,
 						response_data = <<"{}">>,
 						response_header = #{
 											<<"location">> => LocationPath
@@ -189,9 +190,9 @@ client_credentials_grant(Request = #request{authorization = Authorization}) ->
 							Secret = list_to_binary(Password),
 							Auth = oauth2:authorize_client_credentials({ClientId2, Secret}, Scope, []),
 							issue_token(Auth);
-						_Error -> {error, invalid_request}
+						Error -> Error
 					end;
-				false -> {error, invalid_request}
+				false -> {error, einvalid_client_credentials}
 			end;
 		false -> 			
 			Secret = ems_request:get_querystring(<<"client_secret">>, <<>>, Request),
@@ -252,7 +253,7 @@ access_token_request(Request = #request{authorization = Authorization}) ->
 							issue_token_and_refresh(Auth);						
 						_Error -> {error, invalid_request}
 					end;
-				false -> {error, invalid_request}
+				false -> {error, einvalid_request}
 			end;
 		false -> 
 			Authz = oauth2:authorize_code_grant({ClientId, ClientSecret}, Code, RedirectUri, []),

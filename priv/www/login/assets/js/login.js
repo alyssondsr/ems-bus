@@ -177,7 +177,6 @@ Login.LoginSistemas = (function() {
 				 'client_id='+getRdirectUri()['client_id']+
 				 '&state='+getRdirectUri()['state']+
 				 '&redirect_uri='+getRdirectUri()['redirect_uri'];
-		alert("url: "+ url);
 		$.ajax({
 			url: url,
 			crossDomain: true,
@@ -197,10 +196,9 @@ Login.LoginSistemas = (function() {
 					// data.redirect contains the string URL to redirect to
 					window.location.href = data.redirect;
 				}
-				
-
 			},
 			complete: function(data, textStatus) {
+<<<<<<< HEAD
 				window.location.href = data.getResponseHeader("Location");
 				//alert("succcess "+ textStatus);
 				//if(textStatus == 'success'){
@@ -217,8 +215,19 @@ Login.LoginSistemas = (function() {
 					
 					//window.location.href=url;
 				//}
+=======
+				if(textStatus == 'success'){
+					if (document.referrer != undefined && document.referrer != ""){
+						urlBase=document.referrer;
+						urlBase=urlBase.split('/');
+						url=urlBase[0]+'//'+urlBase[2]+''+data.getResponseHeader("Location");
+					}else{
+						url=data.getResponseHeader("Location");
+					}
+					window.location.href=url;
+				}
+>>>>>>> upstream/master
 			}
-
 		});
 	}
 	

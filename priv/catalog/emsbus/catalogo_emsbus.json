@@ -132,8 +132,5 @@
 	{
 		"catalog": "/emsbus/ems_auth_login", 
 		"file": "ems_auth_login.json"
-	}
-
-
-	
+	}	
 ]
