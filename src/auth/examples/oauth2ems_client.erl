@@ -2,11 +2,11 @@
 
 -export([callback/1]).
 -include("../include/ems_schema.hrl").
--define(REDIRECT_URI, <<"https://164.41.120.42:2302/callback">>).
+-define(REDIRECT_URI, <<"https://127.0.0.1:2302/callback">>).
 -define(CLIENTID, <<"teste">>).
 -define(SECRET, <<"123456">>).
--define(ACCESS_TOKEN_URL, "https://164.41.120.43:2302/authorize").
--define(SERVICO, <<"https://164.41.120.43:2302/netadm/info">>).
+-define(ACCESS_TOKEN_URL, "https://127.0.0.1:2302/authorize").
+-define(SERVICO, <<"https://127.0.0.1:2302/netadm/info">>).
 -define(SCOPE, <<"email">>).
 
 %-define(REDIRECT_URI, <<"https://164.41.120.42:2302/callback">>).
@@ -17,15 +17,14 @@
 
 
 callback(Request) -> 
-
+	Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
 	Error = ems_request:get_querystring(<<"error">>, <<>>, Request),
-	case Error == <<"access_denied">> of
+	case Code == <<>> of
 		true ->
 			{ok, Request#request{code = 401, 
 				response_data = "{error: access_denied}"}
 			};
 		false -> 
-			Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
 			Auth = base64:encode(<<?CLIENTID/binary, ":", ?SECRET/binary>>),
 			Authz = <<"Basic ", Auth/binary>>,
 			Authorization = binary:bin_to_list(Authz),

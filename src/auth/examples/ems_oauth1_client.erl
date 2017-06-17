@@ -2,18 +2,12 @@
 
 -export([callback/1]).
 -include("../include/ems_schema.hrl").
--define(OAUTH_CALLBACK, <<"https://164.41.120.42:2302/callback">>).
+-define(OAUTH_CALLBACK, <<"https://127.0.0.1:2302/callback">>).
 -define(CONSUMER_KEY, <<"key">>).
 -define(CONSUMER_SECRET, <<"123456">>).
 -define(OAUTH_SIGNATURE_METHOD, <<"PLAINTEXT">>).
--define(ACCESS_TOKEN_URL, "https://164.41.120.43:2302/authorize").
+-define(ACCESS_TOKEN_URL, "https://127.0.0.1:2302/oauth/request_temp_credentials").
 -define(SERVICO, <<"https://164.41.120.43:2302/netadm/info">>).
-
-%-define(REDIRECT_URI, <<"https://164.41.120.42:2302/callback">>).
-%-define(CLIENTID, <<"43138f88cb30a7b692f0">>).
-%-define(SECRET, <<"b45266981d747535974047853c2bb8ab5bba01bd">>).
-%-define(ACCESS_TOKEN_URL, "https://github.com/login/oauth/access_token").
-%-define(SERVICO, <<"https://api.github.com/user">>).
 
 
 callback(Request) -> 
@@ -24,13 +18,14 @@ callback(Request) ->
 				response_data = "{error: access_denied}"}
 			};
 		false -> 
-			Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
-			Auth = base64:encode(<<?CLIENTID/binary, ":", ?SECRET/binary>>),
-			Authz = <<"Basic ", Auth/binary>>,
-			Authorization = binary:bin_to_list(Authz),
-			Databin =  <<"grant_type=authorization_code&code=", Code/binary, "&redirect_uri=", ?REDIRECT_URI/binary, "&scope=", ?SCOPE/binary>>,
+			%Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
+			%Auth = base64:encode(<<?CLIENTID/binary, ":", ?SECRET/binary>>),
+			%Authz = <<"Basic ", Auth/binary>>,
+			%Authorization = binary:bin_to_list(Authz),
+			Databin =  <<"oauth_consumer_key=", ?CONSUMER_KEY/binary, "&oauth_callback=", ?OAUTH_CALLBACK/binary,
+			 "&oauth_signature_method=", ?OAUTH_SIGNATURE_METHOD/binary,"oauth_signature=">>,
 			Data = binary:bin_to_list(Databin),
-			case request(Authorization,Data) of
+			case request(<<>>,Data) of
 				{ok,Response} ->
 					{ok, Request#request{code = 200, 
 								 response_data = Response,
@@ -56,7 +51,7 @@ acessa_servico(Token) ->
 	Net.	
 
 request(Authorization,Data)->
-	Response = httpc:request(post,{?ACCESS_TOKEN_URL, [{"Authorization", Authorization}], "application/x-www-form-urlencoded",Data}, [], []),		
+	Response = httpc:request(get,{?ACCESS_TOKEN_URL, [{"Authorization", Authorization}], "application/x-www-form-urlencoded",Data}, [], []),		
 	format(Response).
 
 format({ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}})->

@@ -50,6 +50,28 @@
 		"lang" : "erlang"
 	},
 	{
+		"name" : "/callback",
+		"comment": "Simulção de recurso",
+		"owner": "oauth2ems",
+		"version": "1",
+		"service" : "oauth2ems_client:callback",
+		"url": "/callback",
+		"type": "GET",
+		"querystring": [
+			{
+				"name": "code",
+				"type": "string",
+				"comment": "Token de acesso"
+			},
+			{
+				"name": "error",
+				"type": "string",
+				"comment": "Descrição do erro"
+			}
+		],
+		"lang" : "erlang"
+	},
+	{
 		"name" : "/oauth/request_token",
 		"comment": "Oauth 1.0a",
 		"owner": "oauth2ems",
