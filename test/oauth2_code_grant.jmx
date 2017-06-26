@@ -29,7 +29,7 @@
           </elementProp>
           <elementProp name="client_id" elementType="Argument">
             <stringProp name="Argument.name">client_id</stringProp>
-            <stringProp name="Argument.value">teste</stringProp>
+            <stringProp name="Argument.value">q1w2</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="secret" elementType="Argument">
@@ -39,7 +39,7 @@
           </elementProp>
           <elementProp name="redirect_url" elementType="Argument">
             <stringProp name="Argument.name">redirect_url</stringProp>
-            <stringProp name="Argument.value">https://127.0.0.1:2302/callback</stringProp>
+            <stringProp name="Argument.value">http://127.0.0.1:2301/callback</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="state" elementType="Argument">
@@ -58,7 +58,7 @@
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <stringProp name="LoopController.loops">1</stringProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">100</stringProp>
+        <stringProp name="ThreadGroup.num_threads">10</stringProp>
         <stringProp name="ThreadGroup.ramp_time">2</stringProp>
         <longProp name="ThreadGroup.start_time">1352451199000</longProp>
         <longProp name="ThreadGroup.end_time">1352451199000</longProp>

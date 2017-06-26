@@ -2,26 +2,16 @@
 	{
 		"name" : "/oauth/request_temp_credentials",
 		"comment": "Oauth 1.0a",
-		"owner": "oauth2ems",
+		"owner": "oauth1",
 		"version": "1",
-		"service" : "ems_oauth1:serve_oauth_request_token",
+		"service" : "ems_oauth1_backend:serve_oauth_request_token",
 		"url": "/oauth/request_temp_credentials",
-		"type": "GET",
+		"type": "POST",
 		"result_cache" : 0,
 		"authorization" : "public",
 		"querystring": [
 			{
 				"name": "oauth_version",
-				"type": "string",
-				"comment": "Oauth Version"
-			},
-			{
-				"name": "oauth_nonce",
-				"type": "string",
-				"comment": "Oauth Version"
-			},
-			{
-				"name": "oauth_timestamp",
 				"type": "string",
 				"comment": "Oauth Version"
 			},
@@ -33,7 +23,6 @@
 			{
 				"name": "oauth_callback",
 				"type": "string",
-				"default":"http://127.0.0.1:2301",
 				"comment": "URL Callback"
 			},
 			{
@@ -50,37 +39,22 @@
 		"lang" : "erlang"
 	},
 	{
-		"name" : "/callback",
-		"comment": "Simulção de recurso",
-		"owner": "oauth2ems",
-		"version": "1",
-		"service" : "oauth2ems_client:callback",
-		"url": "/callback",
-		"type": "GET",
-		"querystring": [
-			{
-				"name": "code",
-				"type": "string",
-				"comment": "Token de acesso"
-			},
-			{
-				"name": "error",
-				"type": "string",
-				"comment": "Descrição do erro"
-			}
-		],
-		"lang" : "erlang"
-	},
-	{
 		"name" : "/oauth/request_token",
 		"comment": "Oauth 1.0a",
 		"owner": "oauth2ems",
 		"version": "1",
-		"service" : "ems_oauth1:serve_oauth_request_token",
+		"service" : "ems_oauth1_backend:oauth_ro_authz",
 		"url": "/oauth/request_token",
 		"type": "GET",
 		"result_cache" : 0,
 		"authorization" : "public",
+		"querystring": [
+			{
+				"name": "oauth_token",
+				"type": "string",
+				"comment": "Oauth Version"
+			}
+		],
 		"lang" : "erlang"
 	},
 	{
@@ -88,11 +62,48 @@
 		"comment": "Oauth 1.0a",
 		"owner": "oauth2ems",
 		"version": "1",
-		"service" : "ems_oauth1:serve_oauth_access_token",
+		"service" : "ems_oauth1_backend:serve_oauth_access_token",
 		"url": "/oauth/access_token",
-		"type": "GET",
+		"type": "POST",
 		"result_cache" : 0,
 		"authorization" : "public",
+		"querystring": [
+			{
+				"name": "oauth_verifier",
+				"type": "string",
+				"comment": "Oauth Version"
+			},
+			{
+				"name": "oauth_version",
+				"type": "string",
+				"comment": "Oauth Version"
+			},
+			{
+				"name": "oauth_token",
+				"type": "string",
+				"comment": "Access Token"
+			},
+			{
+				"name": "oauth_consumer_key",
+				"type": "string",
+				"comment": "Oauth Version"
+			},
+			{
+				"name": "oauth_callback",
+				"type": "string",
+				"comment": "URL Callback"
+			},
+			{
+				"name": "oauth_signature_method",
+				"type": "string",
+				"comment": "Oauth Version"
+			},
+			{
+				"name": "oauth_signature",
+				"type": "string",
+				"comment": "Oauth Version"
+			}
+		],
 		"lang" : "erlang"
 	},
 	{
@@ -105,6 +116,40 @@
 		"type": "GET",
 		"result_cache" : 0,
 		"authorization" : "public",
+		"lang" : "erlang"
+	},
+	{
+		"name" : "/callback1",
+		"comment": "Simulção de cliente",
+		"owner": "ems_oauth1",
+		"version": "1",
+		"service" : "ems_oauth1_client:callback",
+		"url": "/callback1",
+		"result_cache" : 0,
+		"type": "GET",
+		"lang" : "erlang"
+	},
+	{
+		"name" : "/cliente1",
+		"comment": "Simulção de cliente",
+		"owner": "ems_oauth1",
+		"version": "1",
+		"service" : "ems_oauth1_client:cb",
+		"url": "/cliente1",
+		"result_cache" : 0,
+		"type": "GET",
+		"querystring": [
+			{
+				"name": "oauth_verifier",
+				"type": "string",
+				"comment": "Oauth Version"
+			},
+			{
+				"name": "oauth_token",
+				"type": "string",
+				"comment": "Oauth Version"
+			}
+		],
 		"lang" : "erlang"
 	}
 ]

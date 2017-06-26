@@ -110,6 +110,7 @@
 		"result_cache" : 0,
 		"async": "false",
 		"type": "GET",
+		"authorization":"oauth2",
 		"lang" : "erlang"
 	}
 	

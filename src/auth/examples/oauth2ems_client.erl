@@ -2,12 +2,12 @@
 
 -export([callback/1]).
 -include("../include/ems_schema.hrl").
--define(REDIRECT_URI, <<"https://127.0.0.1:2302/callback">>).
--define(CLIENTID, <<"teste">>).
+-define(REDIRECT_URI, <<"http://127.0.0.1:2301/callback">>).
+-define(CLIENTID, <<"q1w2">>).
 -define(SECRET, <<"123456">>).
 -define(ACCESS_TOKEN_URL, "https://127.0.0.1:2302/authorize").
 -define(SERVICO, <<"https://127.0.0.1:2302/netadm/info">>).
--define(SCOPE, <<"email">>).
+-define(SCOPE, <<>>).
 
 %-define(REDIRECT_URI, <<"https://164.41.120.42:2302/callback">>).
 %-define(CLIENTID, <<"43138f88cb30a7b692f0">>).
@@ -30,13 +30,14 @@ callback(Request) ->
 			Authorization = binary:bin_to_list(Authz),
 			Databin =  <<"grant_type=authorization_code&code=", Code/binary, "&redirect_uri=", ?REDIRECT_URI/binary, "&scope=", ?SCOPE/binary>>,
 			Data = binary:bin_to_list(Databin),
+			io:format("\n Code: ~p\n",[Code]),
 			case request(Authorization,Data) of
 				{ok,Response} ->
 					{ok, Request#request{code = 200, 
 								 response_data = Response,
 								 content_type = <<"application/json;charset=UTF-8">>}
 				};
-				{error,Error} ->
+				{Error} ->
 					%ResponseData = ems_schema:to_json(Error),
 					{ok, Request#request{code = 401, 
 								 response_data = <<"{error:", Error/binary , "}">>,

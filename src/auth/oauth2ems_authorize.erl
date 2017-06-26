@@ -72,7 +72,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 					Code = element(2,lists:nth(1,Response)),
 					LocationPath = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 302, 
+					{ok, Request#request{code = 200, 
 						response_data = <<"{}">>,
 						response_header = #{
 											<<"location">> => LocationPath
@@ -82,7 +82,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 302, 
+					{ok, Request#request{code = 200, 
 						 response_data = <<"{}">>,
 						 response_header = #{
 												<<"location">> => LocationPath
@@ -258,7 +258,7 @@ access_token_request(Request = #request{authorization = Authorization}) ->
 		false -> 
 			Authz = oauth2:authorize_code_grant({ClientId, ClientSecret}, Code, RedirectUri, []),
 			issue_token_and_refresh(Authz)
-		end.  
+	end.  
 		
 
 issue_token({ok, {_, Auth}}) ->

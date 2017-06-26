@@ -92,12 +92,17 @@ get_client_identity(ClientId, _) ->
         
 
 associate_access_code(AccessCode, Context, _AppContext) ->
+	io:format("\n Context = ~s \n",[Context]),
+
     {put(?ACCESS_CODE_TABLE, AccessCode, Context), Context}.
 
 associate_refresh_token(RefreshToken, Context, _) ->
+	io:format("\n Context = ~s \n",[Context]),
     {put(?REFRESH_TOKEN_TABLE, RefreshToken, Context), Context}.
 
 associate_access_token(AccessToken, Context, _) ->
+	io:format("\n Context = ~s \n",[Context]),
+
     {put(?ACCESS_TOKEN_TABLE, AccessToken, Context), Context}.
 
 resolve_access_code(AccessCode, _) ->

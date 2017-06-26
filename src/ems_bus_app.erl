@@ -24,6 +24,7 @@ start(_StartType, StartArgs) ->
 					ems_dispatcher:start(),
 					ems_health:start(),
 					oauth2ems_backend:start(),
+					ems_oauth1_backend:start(),
 					Ret = ems_bus_sup:start_link(StartArgs),
 					Conf = ems_config:getConfig(),
 					erlang:send_after(4500, spawn(fun() -> 
