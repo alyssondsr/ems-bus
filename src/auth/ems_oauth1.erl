@@ -1,12 +1,12 @@
--module(ems_oauth1_backend).
+-module(ems_oauth1).
 
 -include("../../include/ems_config.hrl").
 -include("../../include/ems_schema.hrl").
 -export([start/0, stop/0]).
 -export([serve_oauth_request_token/1]).
 -export([serve_oauth_access_token/1]).
+-export([verify_token/1]).
 -export([oauth_ro_authz/1]).
--export([serve_echo/1]).
 		
 -import(proplists, [get_value/2]).
 
@@ -29,52 +29,45 @@ stop() ->
 
 
 serve_oauth_request_token(Request = #request{type = Type}) ->
-	case Type of
-		"POST" ->
-			serve_oauth(Request, fun(URL, Params, Consumer, Signature) ->
-			case oauth:verify(binary:bin_to_list(Signature), "POST", URL, maps:to_list(Params), Consumer, <<>>) of
-			true ->
-				RequestToken  = oauth2_token:generate(<<>>),
-				RequestSecret  = oauth2_token:generate(<<>>),
-				Callback = ems_request:get_querystring(<<"oauth_callback">>, [],Request),
-				associate_token(RequestToken,RequestSecret,Consumer,Callback),
-				ok(Request, <<"oauth_token=",RequestToken/binary,"&oauth_token_secret=",RequestSecret/binary>>);
-			false ->
-				bad(Request, "invalid signature value.")
-			end
-		end);
-		_ ->
-      method_not_allowed(Request)
-  end.
+	serve_oauth(Request, fun(URL, Params, Consumer, Signature) ->
+	case oauth:verify(binary:bin_to_list(Signature), Type, URL, maps:to_list(Params), Consumer, <<>>) of
+		true ->
+			RequestToken  = oauth2_token:generate(<<>>),
+			RequestSecret  = oauth2_token:generate(<<>>),
+			Callback = ems_request:get_querystring(<<"oauth_callback">>, [],Request),
+			associate_token(RequestToken,RequestSecret,Consumer,Callback),
+			ok(Request, <<"oauth_token=",RequestToken/binary,"&oauth_token_secret=",RequestSecret/binary>>);
+		false ->
+			bad(Request, "invalid signature value.")
+		end
+	end).
 
 oauth_ro_authz(Request = #request{authorization = Authorization}) ->
-	%case ems_http_util:parse_basic_authorization_header(Authorization) of
-	%	{ok, Login, Password} ->
-	%		case ems_user:authenticate_login_password(Login, Password) of
-	%			ok ->
+	case ems_http_util:parse_basic_authorization_header(Authorization) of
+		{ok, Login, Password} ->
+			case ems_user:authenticate_login_password(Login, list_to_binary(Password)) of
+				ok ->
 				    RequestToken = ems_request:get_querystring(<<"oauth_token">>, [],Request),
-				    case resolve_token(RequestToken) of
+				    case resolve_token(?TMP_TOKEN_TABLE,RequestToken) of
 						{ok, {_, GrantCtx}} ->
 							Verifier  = oauth2_token:generate(<<>>),
 							{ok, Callback} = associate_verifier(RequestToken, Verifier, GrantCtx),
 							Path = <<"oauth_token=",RequestToken/binary,"&oauth_verifier=",Verifier/binary>>,
 							redirect(Request, Callback, Path);							
 						{error, _} -> bad(Request, "invalid token.")
-	%				end;
-	%			_ -> bad(Request, "invalid user.")
-	%		end;
-	%	_Error -> bad(Request, "invalid user.")
+					end;
+				_ -> bad(Request, "invalid user.")
+			end;
+		_Error -> bad(Request, "invalid authz.")
 	end.
 
-serve_oauth_access_token(Request = #request{type = Type}) ->
-  case Type of
-    "POST" ->
-      serve_oauth(Request, fun(URL, Params, Consumer, Signature) ->
-		    RequestToken = ems_request:get_querystring(<<"oauth_token">>, [],Request),
-		    case resolve_token(RequestToken) of
-				{ok,{_,GrantCtx}} ->
-					RequestSecret = get_(GrantCtx,<<"oauth_token_secret">>),
-					case oauth:verify(binary:bin_to_list(Signature), "POST", URL, maps:to_list(Params), Consumer, binary:bin_to_list(RequestSecret)) of
+serve_oauth_access_token(Request) ->
+	serve_oauth(Request, fun(URL, Params, Consumer, Signature) ->
+		RequestToken = ems_request:get_querystring(<<"oauth_token">>, [],Request),
+		case resolve_token(?TMP_TOKEN_TABLE,RequestToken) of
+			{ok,{_,GrantCtx}} ->
+				RequestSecret = get_(GrantCtx,<<"oauth_token_secret">>),
+				case oauth:verify(binary:bin_to_list(Signature), "POST", URL, maps:to_list(Params), Consumer, binary:bin_to_list(RequestSecret)) of
 					true ->
 						Token  = oauth2_token:generate(<<>>),
 						Secret  = oauth2_token:generate(<<>>),
@@ -85,47 +78,36 @@ serve_oauth_access_token(Request = #request{type = Type}) ->
 					end;
 				_ -> bad(Request, "invalid token.")
         end
-      end);
-    _ ->
-      method_not_allowed(Request)
-  end.
-
-serve_echo(Request = #request{type = Type}) ->
-  case Type of
-    "GET" ->
-      serve_oauth(Request, fun(URL, Params, Consumer, Signature) ->
-        case oauth:token(Params) of
-          "accesskey" ->
-            case oauth:verify(Signature, "GET", URL, Params, Consumer, "accesssecret") of
-              true ->
-                EchoParams = lists:filter(fun({K, _}) -> not lists:prefix("oauth_", K) end, Params),
-                ok(Request, oauth:uri_params_encode(EchoParams));
-              false ->
-                bad(Request, "invalid signature value.")
-            end;
-          _ ->
-            bad(Request, "invalid oauth token")
-        end
-      end);
-    _ ->
-      method_not_allowed(Request)
-  end.
+      end).
+      
+verify_token(Request) ->
+    serve_oauth(Request, fun(URL, Params, Consumer, Signature) ->
+	    Token = ems_request:get_querystring(<<"oauth_token">>, [],Request),
+		io:format("\n Token = ~s e Token = ~s \n",[Token,Token]),
+	    case resolve_token(?ACCESS_TOKEN_TABLE,Token) of
+			{ok,{_,GrantCtx}} ->
+				RequestSecret = get_(GrantCtx,<<"oauth_token_secret">>),
+				case oauth:verify(binary:bin_to_list(Signature), "POST", URL, maps:to_list(Params), Consumer, binary:bin_to_list(RequestSecret)) of
+					true -> ok;
+					false ->{"error: invalid signature value."}
+				end;
+			_ -> {"error: invalid token."}
+		end
+	end).
 
 serve_oauth(Request = #request{uri = URL}, Fun) ->
-  Params = Request#request.querystring_map,
-  case maps:get(<<"oauth_version">>, Params) of
-    <<"1.0">> ->
-      ConsumerKey = maps:get(<<"oauth_consumer_key">>, Params),
-      SigMethod = maps:get(<<"oauth_signature_method">>, Params),
-      case consumer_lookup(ConsumerKey, SigMethod) of
-        none ->
-          bad(Request, "invalid consumer (key or signature method).");
-        Consumer ->
-          Signature = maps:get(<<"oauth_signature">>, Params),
-          Fun(binary:bin_to_list(URL), maps:remove(<<"oauth_signature">>, Params), Consumer, Signature)
-      end;
-    _ ->
-      bad(Request, "invalid oauth version.")
+	Params = Request#request.querystring_map,
+	case maps:get(<<"oauth_version">>, Params) of
+		<<"1.0">> ->
+			ConsumerKey = maps:get(<<"oauth_consumer_key">>, Params),
+			SigMethod = maps:get(<<"oauth_signature_method">>, Params),
+		case consumer_lookup(ConsumerKey, SigMethod) of
+			none ->	bad(Request, "invalid consumer (key or signature method).");
+			Consumer ->
+				Signature = maps:get(<<"oauth_signature">>, Params),
+				Fun(binary:bin_to_list(URL), maps:remove(<<"oauth_signature">>, Params), Consumer, Signature)
+		end;
+		_ -> bad(Request, "invalid oauth version.")
   end.
 
 %%%===================================================================
@@ -148,8 +130,8 @@ associate_verifier(RequestToken, Verifier, GrantCtx) ->
 	update(?TMP_TOKEN_TABLE, RequestToken, Context),
 	{ok, Callback}.
 
-resolve_token(AccessToken) ->
-    case get(?TMP_TOKEN_TABLE, AccessToken) of
+resolve_token(Table,AccessToken) ->
+    case get(Table, AccessToken) of
        {ok,Value} -> {ok,{[],Value}};
         _Error -> {error, invalid_token} 
     end.
@@ -181,10 +163,6 @@ redirect(Request, RedirectUri, Path) ->
 					}
 		}
 	}.
-
-
-method_not_allowed(Request) ->
-  Request:respond({405, [], <<>>}).
   
 build_context(Consumer, RequestSecret, Callback, Verifier) ->
     [ {<<"consumer">>,  Consumer}

@@ -63,7 +63,6 @@ save_token(AccessToken, RequestSecret) ->
     {ok, <<"oauth_token=",AccessToken/binary>>}.
 
 resolve_token(AccessToken) ->
-	io:format("\n AccessToken = ~s \n",[AccessToken]),
     case get(?TOKEN_TABLE, AccessToken) of
        {ok,Value} -> {ok,Value};
         _Error -> {error, invalid_token} 

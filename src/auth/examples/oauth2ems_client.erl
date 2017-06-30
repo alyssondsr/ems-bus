@@ -18,7 +18,6 @@
 
 callback(Request) -> 
 	Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
-	Error = ems_request:get_querystring(<<"error">>, <<>>, Request),
 	case Code == <<>> of
 		true ->
 			{ok, Request#request{code = 401, 
@@ -30,24 +29,15 @@ callback(Request) ->
 			Authorization = binary:bin_to_list(Authz),
 			Databin =  <<"grant_type=authorization_code&code=", Code/binary, "&redirect_uri=", ?REDIRECT_URI/binary, "&scope=", ?SCOPE/binary>>,
 			Data = binary:bin_to_list(Databin),
-			io:format("\n Code: ~p\n",[Code]),
 			case request(Authorization,Data) of
-				{ok,Response} ->
-					{ok, Request#request{code = 200, 
-								 response_data = Response,
-								 content_type = <<"application/json;charset=UTF-8">>}
-				};
-				{Error} ->
-					%ResponseData = ems_schema:to_json(Error),
-					{ok, Request#request{code = 401, 
-								 response_data = <<"{error:", Error/binary , "}">>,
-								 content_type = <<"application/json;charset=UTF-8">>}
-					}
-				
+				{ok,Response} -> ok(Request, Response);
+				{error,_} -> bad(Request, <<"{error: access_denied}">>)				
 			end			
 end.
 
-%funções internas
+%%%===================================================================
+%%% Funções internas
+%%%===================================================================
 
 acessa_servico(Token) ->
 	URLbin =  <<?SERVICO/binary, "?access_token=", Token/binary>>,
@@ -66,8 +56,18 @@ format({ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}})->
     %RefreshToken = proplists:get_value(<<"reflesh_token">>, ResponseData),
 	{ok, acessa_servico(AccessToken)};
 	
+format(_Error)-> {error, "access_denied"}.
 
-format(_Error)-> {error, <<"access_denied">>}.
+ok(Request, Body) ->
+			{ok, Request#request{code = 200, 
+								 response_data = Body,
+								 content_type = <<"application/json;charset=UTF-8">>}
+			}.		
+bad(Request, Reason) ->
+  {ok, Request#request{code = 401, 
+								 response_data = Reason,
+								 content_type = <<"application/json;charset=UTF-8">>}
+	}.
 
 
 
