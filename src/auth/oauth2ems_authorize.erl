@@ -285,7 +285,4 @@ issue_mac_token(ClientID,Secret) ->
 	Consumer = {ClientID,Secret,<<"HMAC-SHA1">>},
 	Token  = oauth2_token:generate(<<>>),
 	TokenSecret  = oauth2_token:generate(<<>>),
-	ems_oauth1:issue_token(Token,TokenSecret,Consumer);
-issue_mac_token(Error) ->
-    Error.
-
+	ems_oauth1:issue_token(Token,TokenSecret,Consumer).
