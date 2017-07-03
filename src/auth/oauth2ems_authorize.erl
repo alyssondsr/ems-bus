@@ -250,6 +250,7 @@ access_token_request(Request = #request{authorization = Authorization}) ->
 							ClientId2 = list_to_binary(Login),
 							Secret = list_to_binary(Password),
 							Auth = oauth2:authorize_code_grant({ClientId2, Secret}, Code, RedirectUri, []),
+							issue_mac_token(ClientId2,Secret),
 							issue_token_and_refresh(Auth);						
 						_Error -> {error, invalid_request}
 					end;
@@ -279,3 +280,12 @@ issue_code({ok, {_, Auth}}) ->
 	{ok, oauth2_response:to_proplist(Response)};
 issue_code(Error) ->
     Error.
+    
+issue_mac_token(ClientID,Secret) ->
+	Consumer = {ClientID,Secret,<<"HMAC-SHA1">>},
+	Token  = oauth2_token:generate(<<>>),
+	TokenSecret  = oauth2_token:generate(<<>>),
+	ems_oauth1:issue_token(Token,TokenSecret,Consumer);
+issue_mac_token(Error) ->
+    Error.
+

@@ -7,7 +7,8 @@
 -export([serve_oauth_access_token/1]).
 -export([verify_token/1]).
 -export([oauth_ro_authz/1]).
-		
+-export([issue_token/3]).
+
 -import(proplists, [get_value/2]).
 
 -define(ACCESS_TOKEN_TABLE, access_tokens1).
@@ -35,7 +36,7 @@ serve_oauth_request_token(Request = #request{type = Type}) ->
 			RequestToken  = oauth2_token:generate(<<>>),
 			RequestSecret  = oauth2_token:generate(<<>>),
 			Callback = ems_request:get_querystring(<<"oauth_callback">>, [],Request),
-			associate_token(RequestToken,RequestSecret,Consumer,Callback),
+			issue_token(RequestToken,RequestSecret,Consumer,Callback),
 			ok(Request, <<"oauth_token=",RequestToken/binary,"&oauth_token_secret=",RequestSecret/binary>>);
 		false ->
 			bad(Request, "invalid signature value.")
@@ -71,7 +72,7 @@ serve_oauth_access_token(Request) ->
 					true ->
 						Token  = oauth2_token:generate(<<>>),
 						Secret  = oauth2_token:generate(<<>>),
-						associate_token(Token,Secret,Consumer),
+						issue_token(Token,Secret,Consumer),
 						ok(Request,  <<"oauth_token=",Token/binary,"&oauth_token_secret=",Secret/binary>>);
 					false ->
 						bad(Request, "invalid signature value.")
@@ -114,11 +115,11 @@ serve_oauth(Request = #request{uri = URL}, Fun) ->
 %%% Funções internas
 %%%===================================================================
 
-associate_token(AccessToken, Secret, Consumer, Callback) ->
+issue_token(AccessToken, Secret, Consumer, Callback) ->
 	Context = build_context(Consumer, Secret, Callback, <<>>),
     {put(?TMP_TOKEN_TABLE,AccessToken,Context)}.
 
-associate_token(AccessToken, Secret, Consumer) ->
+issue_token(AccessToken, Secret, Consumer) ->
 	Context = build_context(Consumer, Secret,<<>>,<<>>),
     {put(?ACCESS_TOKEN_TABLE,AccessToken,Context)}.
     
