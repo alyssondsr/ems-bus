@@ -25,9 +25,9 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 	end,  
 	case Result of
 		{ok, ResponseData} ->
-			ResponseData2 = ems_schema:prop_list_to_json(ResponseData),
+			%ResponseData2 = ems_schema:prop_list_to_json(ResponseData),
 			{ok, Request#request{code = 200, 
-								 response_data = ResponseData2,
+								 response_data = ResponseData,
 								 content_type = <<"application/json;charset=UTF-8">>}
 			};		
 		
@@ -136,7 +136,7 @@ implicit_token_request(Request = #request{authorization = Authorization}) ->
 
 					LocationPath = <<RedirectUri/binary,"?token=", Token/binary,"&state=",State/binary,"&token_type=",Type/binary,"&expires_in=",Ttl/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 200, 
+					{ok, Request#request{code = 302, 
 						%response_data = <<"code=", Code/binary>>,
 						response_data = <<"{}">>,
 						response_header = #{
@@ -147,7 +147,7 @@ implicit_token_request(Request = #request{authorization = Authorization}) ->
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
 					% mudar code para 302
-					{ok, Request#request{code = 200, 
+					{ok, Request#request{code = 302, 
 						 response_data = <<"{}">>,
 						 response_header = #{
 												<<"location">> => LocationPath
@@ -241,6 +241,8 @@ access_token_request(Request = #request{authorization = Authorization}) ->
 	ClientId    = ems_request:get_querystring(<<"client_id">>, [],Request),
     RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, [],Request),
     ClientSecret = ems_request:get_querystring(<<"client_secret">>, [],Request),
+    	io:format("ClientSecret: ~p",[ClientSecret]),
+
     case ClientSecret == <<>> of
 		true -> 
 			case Authorization =/= undefined of
@@ -250,15 +252,16 @@ access_token_request(Request = #request{authorization = Authorization}) ->
 							ClientId2 = list_to_binary(Login),
 							Secret = list_to_binary(Password),
 							Auth = oauth2:authorize_code_grant({ClientId2, Secret}, Code, RedirectUri, []),
-							issue_mac_token(ClientId2,Secret),
-							issue_token_and_refresh(Auth);						
+							issue_mac_token(ClientId2,Secret);
+							%issue_token_and_refresh(Auth);						
 						_Error -> {error, invalid_request}
 					end;
 				false -> {error, einvalid_request}
 			end;
 		false -> 
 			Authz = oauth2:authorize_code_grant({ClientId, ClientSecret}, Code, RedirectUri, []),
-			issue_token_and_refresh(Authz)
+			issue_mac_token(ClientId,ClientSecret)
+%			issue_token_and_refresh(Authz)
 	end.  
 		
 
@@ -285,7 +288,11 @@ issue_mac_token(ClientID,Secret) ->
 	Consumer = {ClientID,Secret,<<"HMAC-SHA1">>},
 	Token  = oauth2_token:generate(<<>>),
 	TokenSecret  = oauth2_token:generate(<<>>),
-	ems_oauth1:issue_token(Token,TokenSecret,Consumer);
-issue_mac_token(Error) ->
-    Error.
+	io:format("Token: ~p",[ems_oauth1:issue_token(Token,TokenSecret,Consumer)]),
+	ems_oauth1:issue_token(Token,TokenSecret,Consumer),
+	{ok,<<"oauth_token=",Token/binary,"&oauth_token_secret=",TokenSecret/binary>>}.
+%issue_mac_token(Error) ->
+%    Error.
+
+
 

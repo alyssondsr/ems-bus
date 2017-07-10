@@ -85,7 +85,7 @@ info(Request) ->
 			};
 		_ -> 
 			{ok, Request#request{code = 401, 
-						 response_data = "Deu ruim"}
+						 response_data = "{error: Deu ruim}"}
 			}
 	end.
 

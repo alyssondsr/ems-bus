@@ -137,14 +137,17 @@ resolve_token(Table,AccessToken) ->
         _Error -> {error, invalid_token} 
     end.
 
-consumer_lookup(<<"key">>, <<"PLAINTEXT">>) ->
-  {"key", "secret", plaintext};
-consumer_lookup(<<"key">>, <<"HMAC-SHA1">>) ->
-  {"key", "secret", hmac_sha1};
-consumer_lookup("key", "RSA-SHA1") ->
-  {"key", "data/rsa_cert.pem", rsa_sha1};
-consumer_lookup(_, _) ->
-  none.
+%consumer_lookup(<<"key">>, <<"PLAINTEXT">>) ->
+%  {"key", "secret", plaintext};
+consumer_lookup(ClientId, Method) ->
+    case ems_client:find_by_codigo(ClientId) of
+			{ok, Client} ->	  {ClientId, "secret", hmac_sha1};
+			_ -> {error, unauthorized_client}		
+    end.
+%consumer_lookup("key", "RSA-SHA1") ->
+%  {"key", "data/rsa_cert.pem", rsa_sha1};
+%consumer_lookup(_, _) ->
+%  none.
 
 ok(Request, Body) ->
 			{ok, Request#request{code = 200, 
