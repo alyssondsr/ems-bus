@@ -288,11 +288,8 @@ issue_mac_token(ClientID,Secret) ->
 	Consumer = {ClientID,Secret,<<"HMAC-SHA1">>},
 	Token  = oauth2_token:generate(<<>>),
 	TokenSecret  = oauth2_token:generate(<<>>),
-	io:format("Token: ~p",[ems_oauth1:issue_token(Token,TokenSecret,Consumer)]),
 	ems_oauth1:issue_token(Token,TokenSecret,Consumer),
 	{ok,<<"oauth_token=",Token/binary,"&oauth_token_secret=",TokenSecret/binary>>}.
 %issue_mac_token(Error) ->
 %    Error.
-
-
 
