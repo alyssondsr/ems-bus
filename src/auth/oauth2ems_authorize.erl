@@ -24,41 +24,16 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 			 _ -> {error, invalid_oauth2_grant}
 	end,  
 	case Result of
-		{ok, ResponseData} ->
-			%ResponseData2 = ems_schema:prop_list_to_json(ResponseData),
-			{ok, Request#request{code = 200, 
-								 response_data = ResponseData,
-								 content_type = <<"application/json;charset=UTF-8">>}
-			};		
-		
-			% comentado temporariamente
-			%ResponseData2 = ems_schema:prop_list_to_json(ResponseData),
-			%UserResponseData = lists:keyfind(<<"resource_owner">>, 1, ResponseData),
-			%PublicKey = ems_util:open_file(?SSL_PATH ++  "/" ++ binary_to_list(<<"public_key.pem">>)),
-			%CryptoText = ems_util:encrypt_public_key(ResponseData2,PublicKey),
-			%CryptoBase64 = base64:encode(CryptoText),
-			%{ok, Request#request{code = 200, 
-			%					 response_data = ems_schema:prop_list_to_json([UserResponseData,{<<"authorization">>,CryptoBase64}])}
-			%};
-		
-		{redirect, ClientId, RedirectUri} ->
+		{ok, ResponseData} -> 	ok(Request, ResponseData);		
+		{redirect, ClientId, RedirectUri} -> 
 			LocationPath = iolist_to_binary([Protocol,<<"://"/utf8>>, Host, <<":"/utf8>>,list_to_binary(integer_to_list(Port)),<<"/login/index.html?response_type=code&client_id=">>, ClientId, <<"&redirect_uri=">>, RedirectUri]),
-			{ok, Request#request{code = 302, 
-								 response_header = #{
-														<<"location">> => LocationPath
-													}
-								}
-			};
-		Error ->
-			ResponseData = ems_schema:to_json(Error),
-			{ok, Request#request{code = 401, 
-								 response_data = ResponseData}
-			}
+			redirect(Request, LocationPath);			
+		Error ->	bad(Request, Error)
 
 	end.
+	
 %% Requisita o código de autorização - seções 4.1.1 e 4.1.2 do RFC 6749.
 %% URL de teste: GET http://127.0.0.1:2301/authorize?response_type=code2&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html&username=johndoe&password=A3ddj3w
-	
 code_request(Request = #request{authorization = Authorization}) ->
     ClientId    = ems_request:get_querystring(<<"client_id">>, [],Request),
     RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, [],Request),
@@ -71,28 +46,13 @@ code_request(Request = #request{authorization = Authorization}) ->
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
 					LocationPath = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
-					% mudar code para 302
-					{ok, Request#request{code = 302, 
-						response_data = <<"{}">>,
-						response_header = #{
-											<<"location">> => LocationPath
-											}
-						}
-					};
+					redirect(Request, LocationPath);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					% mudar code para 302
-					{ok, Request#request{code = 302, 
-						 response_data = <<"{}">>,
-						 response_header = #{
-												<<"location">> => LocationPath
-											}
-						}
-					}
+					redirect(Request, LocationPath)
 				end;
 			
 		_ ->
-			LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
 			Username = ems_request:get_querystring(<<"username">>, <<>>, Request),
 			Password = ems_request:get_querystring(<<"password">>, <<>>, Request),
 		    Authz = oauth2:authorize_code_request({Username,Password}, ClientId, RedirectUri, Scope, []),
@@ -100,24 +60,10 @@ code_request(Request = #request{authorization = Authorization}) ->
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
 					Location = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
-					% mudar code para 302
-					{ok, Request#request{code = 302, 
-						response_data = <<"{}">>,
-						response_header = #{
-											<<"location">> => Location
-											}
-						}
-					};
+					redirect(Request, Location);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					% mudar code para 302
-					{ok, Request#request{code = 302, 
-						 response_data = <<"{}">>,
-						 response_header = #{
-												<<"location">> => LocationPath
-											}
-						}
-					}
+					redirect(Request, LocationPath)
 				end
 		end.
 implicit_token_request(Request = #request{authorization = Authorization}) ->
@@ -133,38 +79,16 @@ implicit_token_request(Request = #request{authorization = Authorization}) ->
 					Token = element(2,lists:nth(1,Response)),
 					Ttl = element(4,lists:nth(1,Response)),
 					Type = element(10,lists:nth(1,Response)),
-
 					LocationPath = <<RedirectUri/binary,"?token=", Token/binary,"&state=",State/binary,"&token_type=",Type/binary,"&expires_in=",Ttl/binary>>,
-					% mudar code para 302
-					{ok, Request#request{code = 302, 
-						%response_data = <<"code=", Code/binary>>,
-						response_data = <<"{}">>,
-						response_header = #{
-											<<"location">> => LocationPath
-											}
-						}
-					};
+					redirect(Request, LocationPath);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					% mudar code para 302
-					{ok, Request#request{code = 302, 
-						 response_data = <<"{}">>,
-						 response_header = #{
-												<<"location">> => LocationPath
-											}
-						}
-					}
+					redirect(Request, LocationPath)
 				end;
 			
 		_ ->
 			LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-			{ok, Request#request{code = 302, 
-						 response_data = <<"{}">>,
-						 response_header = #{
-												<<"location">> => LocationPath
-											}
-						}
-			}
+			redirect(Request, LocationPath)
 		end.
 
 
@@ -252,16 +176,16 @@ access_token_request(Request = #request{authorization = Authorization}) ->
 							ClientId2 = list_to_binary(Login),
 							Secret = list_to_binary(Password),
 							Auth = oauth2:authorize_code_grant({ClientId2, Secret}, Code, RedirectUri, []),
-							issue_mac_token(ClientId2,Secret);
-							%issue_token_and_refresh(Auth);						
+							%issue_mac_token(ClientId2,Secret);
+							issue_token_and_refresh(Auth);						
 						_Error -> {error, invalid_request}
 					end;
 				false -> {error, einvalid_request}
 			end;
 		false -> 
 			Authz = oauth2:authorize_code_grant({ClientId, ClientSecret}, Code, RedirectUri, []),
-			issue_mac_token(ClientId,ClientSecret)
-%			issue_token_and_refresh(Authz)
+%			issue_mac_token(ClientId,ClientSecret)
+			issue_token_and_refresh(Authz)
 	end.  
 		
 
@@ -292,4 +216,24 @@ issue_mac_token(ClientID,Secret) ->
 	{ok,<<"oauth_token=",Token/binary,"&oauth_token_secret=",TokenSecret/binary>>}.
 %issue_mac_token(Error) ->
 %    Error.
+
+ok(Request, Body) ->
+			{ok, Request#request{code = 200, 
+								 response_data = ems_schema:prop_list_to_json(Body),
+								 content_type = <<"application/json;charset=UTF-8">>}
+			}.		
+bad(Request, Reason) ->
+			ResponseData = ems_schema:to_json(Reason),
+			{ok, Request#request{code = 401, 
+								 response_data = ResponseData}
+			}.
+redirect(Request, LocationPath) ->
+	% mudar code para 302
+	{ok, Request#request{code = 302, 
+		 response_data = <<"{}">>,
+		 response_header = #{
+					<<"location">> => LocationPath
+					}
+		}
+	}.
 

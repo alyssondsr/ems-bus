@@ -9,7 +9,7 @@
         <collectionProp name="Arguments.arguments">
           <elementProp name="is_server" elementType="Argument">
             <stringProp name="Argument.name">is_server</stringProp>
-            <stringProp name="Argument.value">127.0.0.1</stringProp>
+            <stringProp name="Argument.value">164.41.120.34</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="is_port" elementType="Argument">
@@ -29,7 +29,7 @@
           </elementProp>
           <elementProp name="client_id" elementType="Argument">
             <stringProp name="Argument.name">client_id</stringProp>
-            <stringProp name="Argument.value">q1w2</stringProp>
+            <stringProp name="Argument.value">q1w2e3</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="secret" elementType="Argument">
@@ -39,7 +39,7 @@
           </elementProp>
           <elementProp name="redirect_url" elementType="Argument">
             <stringProp name="Argument.name">redirect_url</stringProp>
-            <stringProp name="Argument.value">http://127.0.0.1:2301/callback</stringProp>
+            <stringProp name="Argument.value">https://164.41.120.43:2302/callback</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="state" elementType="Argument">
@@ -58,7 +58,7 @@
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <stringProp name="LoopController.loops">1</stringProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">1000</stringProp>
+        <stringProp name="ThreadGroup.num_threads">10000</stringProp>
         <stringProp name="ThreadGroup.ramp_time">2</stringProp>
         <longProp name="ThreadGroup.start_time">1352451199000</longProp>
         <longProp name="ThreadGroup.end_time">1352451199000</longProp>
@@ -469,7 +469,7 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename"></stringProp>
+          <stringProp name="filename">/home/alysson/Dropbox/Dissertação/oauth2_code_grant_10000a.csv</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>

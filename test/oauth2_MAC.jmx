@@ -376,7 +376,7 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">/home/alysson/Dropbox/Dissertação/oauth2_mac_5000.csv</stringProp>
+          <stringProp name="filename">/home/alysson/Dropbox/Dissertação/oauth2_mac_5000a.csv</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>
