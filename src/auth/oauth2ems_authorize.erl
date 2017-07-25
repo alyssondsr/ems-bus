@@ -19,7 +19,8 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 			<<"client_credentials">> ->	client_credentials_grant(Request);
 			<<"token">> -> authorization_request(Request);
 			<<"code">> ->	authorization_request(Request);	
-			<<"authorization_code">> ->		access_token_request(Request);
+			<<"authorization_code">> ->		access_token_request(Request,TypeAuth);
+			<<"mac">> ->		access_token_request(Request,TypeAuth);
 			<<"refresh_token">> ->	refresh_token_request(Request);	
 			 _ -> {error, invalid_oauth2_grant}
 	end,  
@@ -160,13 +161,11 @@ refresh_token_request(Request) ->
 
 %% Requisita o token de acesso com o código de autorização - seções  4.1.3. e  4.1.4 do RFC 6749.
 %% URL de teste: POST http://127.0.0.1:2301/authorize?grant_type=authorization_code&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html&username=johndoe&password=A3ddj3w&secret=qwer&code=dxUlCWj2JYxnGp59nthGfXFFtn3hJTqx
-access_token_request(Request = #request{authorization = Authorization}) ->
+access_token_request(Request = #request{authorization = Authorization},TypeAuth) ->
 	Code = ems_request:get_querystring(<<"code">>, [],Request),
 	ClientId    = ems_request:get_querystring(<<"client_id">>, [],Request),
     RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, [],Request),
     ClientSecret = ems_request:get_querystring(<<"client_secret">>, [],Request),
-    	io:format("ClientSecret: ~p",[ClientSecret]),
-
     case ClientSecret == <<>> of
 		true -> 
 			case Authorization =/= undefined of
@@ -176,16 +175,20 @@ access_token_request(Request = #request{authorization = Authorization}) ->
 							ClientId2 = list_to_binary(Login),
 							Secret = list_to_binary(Password),
 							Auth = oauth2:authorize_code_grant({ClientId2, Secret}, Code, RedirectUri, []),
-							%issue_mac_token(ClientId2,Secret);
-							issue_token_and_refresh(Auth);						
+							case TypeAuth of
+								<<"mac">> -> issue_mac_token(ClientId2,Secret);
+								<<"authorization_code">> -> issue_token_and_refresh(Auth)
+							end;						
 						_Error -> {error, invalid_request}
 					end;
 				false -> {error, einvalid_request}
 			end;
 		false -> 
-			Authz = oauth2:authorize_code_grant({ClientId, ClientSecret}, Code, RedirectUri, []),
-%			issue_mac_token(ClientId,ClientSecret)
-			issue_token_and_refresh(Authz)
+		Authz = oauth2:authorize_code_grant({ClientId, ClientSecret}, Code, RedirectUri, []),
+		case TypeAuth of
+			<<"mac">> -> issue_mac_token(ClientId,ClientSecret);
+			<<"authorization_code">> -> issue_token_and_refresh(Authz)
+		end					
 	end.  
 		
 
@@ -217,16 +220,22 @@ issue_mac_token(ClientID,Secret) ->
 %issue_mac_token(Error) ->
 %    Error.
 
+ok(Request, Body) when is_list(Body) ->
+	{ok, Request#request{code = 200, 
+		response_data = ems_schema:prop_list_to_json(Body),
+		content_type = <<"application/json;charset=UTF-8">>}
+	};
 ok(Request, Body) ->
-			{ok, Request#request{code = 200, 
-								 response_data = ems_schema:prop_list_to_json(Body),
-								 content_type = <<"application/json;charset=UTF-8">>}
-			}.		
+	{ok, Request#request{code = 200, 
+		response_data = Body,
+		content_type = <<"application/json;charset=UTF-8">>}
+	}.		
+		
 bad(Request, Reason) ->
-			ResponseData = ems_schema:to_json(Reason),
-			{ok, Request#request{code = 401, 
-								 response_data = ResponseData}
-			}.
+	ResponseData = ems_schema:to_json(Reason),
+	{ok, Request#request{code = 401, 
+		response_data = ResponseData}
+	}.
 redirect(Request, LocationPath) ->
 	% mudar code para 302
 	{ok, Request#request{code = 302, 
@@ -236,4 +245,3 @@ redirect(Request, LocationPath) ->
 					}
 		}
 	}.
-

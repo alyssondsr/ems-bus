@@ -119,12 +119,12 @@
 		"lang" : "erlang"
 	},
 	{
-		"name" : "/callback1",
+		"name" : "/callback2",
 		"comment": "Simulção de cliente",
 		"owner": "ems_oauth1",
 		"version": "1",
 		"service" : "ems_oauth1_client:callback",
-		"url": "/callback1",
+		"url": "/callback2",
 		"result_cache" : 0,
 		"type": "GET",
 		"lang" : "erlang"

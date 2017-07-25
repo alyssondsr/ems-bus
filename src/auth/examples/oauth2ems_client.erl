@@ -2,12 +2,20 @@
 
 -export([callback/1]).
 -include("../include/ems_schema.hrl").
--define(REDIRECT_URI, <<"https://164.41.120.43:2302/callback">>).
--define(CLIENTID, <<"q1w2e3">>).
+
+%-define(REDIRECT_URI, <<"https://164.41.120.43:2302/callback">>).
+%-define(CLIENTID, <<"q1w2e3">>).
+%-define(SECRET, <<"123456">>).
+%-define(ACCESS_TOKEN_URL, "https://164.41.120.34:2302/authorize").
+%-define(SERVICO, <<"https://164.41.120.34:2302/netadm/info">>).
+%-define(SCOPE, <<>>).
+
+-define(REDIRECT_URI, <<"http://127.0.0.1:2301/callback">>).
+-define(CLIENTID, <<"q1w2">>).
 -define(SECRET, <<"123456">>).
--define(ACCESS_TOKEN_URL, "https://164.41.120.34:2302/authorize").
--define(SERVICO, <<"https://164.41.120.34:2302/netadm/info">>).
--define(SCOPE, <<>>).
+-define(ACCESS_TOKEN_URL, "https://127.0.0.1:2302/authorize").
+-define(SERVICO, <<"https://127.0.0.1:2302/netadm/info">>).
+-define(SCOPE, <<"email">>).
 
 %-define(REDIRECT_URI, <<"https://164.41.120.42:2302/callback">>).
 %-define(CLIENTID, <<"43138f88cb30a7b692f0">>).
@@ -19,10 +27,7 @@
 callback(Request) -> 
 	Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
 	case Code == <<>> of
-		true ->
-			{ok, Request#request{code = 401, 
-				response_data = "{error: access_denied}"}
-			};
+		true ->	bad(Request, <<"{error: access_denied}">>);
 		false -> 
 			Auth = base64:encode(<<?CLIENTID/binary, ":", ?SECRET/binary>>),
 			Authz = <<"Basic ", Auth/binary>>,
@@ -64,7 +69,7 @@ ok(Request, Body) ->
 								 content_type = <<"application/json;charset=UTF-8">>}
 			}.		
 bad(Request, Reason) ->
-  {ok, Request#request{code = 401, 
+  {error, Request#request{code = 401, 
 								 response_data = Reason,
 								 content_type = <<"application/json;charset=UTF-8">>}
 	}.
