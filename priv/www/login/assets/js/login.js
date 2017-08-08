@@ -166,12 +166,17 @@ Login.LoginSistemas = (function() {
 		var urlBase = '';
 		
 		var protocol=window.location.protocol;
-		if (protocol == 'http:'){
-			var port=':2301';
-		}else{
-			var port=':2302';
-		}
-		var baseUrl=protocol + '//' + window.location.hostname + port; 
+		
+		/*var port = ":";
+		
+		if(document.referrer!= undefined && document.referrer != ""){
+			
+			var hostName =document.referrer.split('/')[2];
+			
+			port += hostName.split(':')[1];
+		}*/
+		
+		var baseUrl=protocol + '//' + window.location.hostname +':' + window.location.port; 
 		//alert("baseUrl=" + protocol + '//' + window.location.hostname + port);
 		var url=baseUrl + '/code_request?'+
 				 'client_id='+getRdirectUri()['client_id']+
@@ -198,24 +203,6 @@ Login.LoginSistemas = (function() {
 				}
 			},
 			complete: function(data, textStatus) {
-<<<<<<< HEAD
-				window.location.href = data.getResponseHeader("Location");
-				//alert("succcess "+ textStatus);
-				//if(textStatus == 'success'){
-					//alert("referer is "+ document.referrer);
-					//urlBase = document.referrer;
-					//urlBase = urlBase.split('/');
-
-					//url=data.getResponseHeader("Location");
-					//alert("data.url:"+ url);
-					//alert("array: "+ urlBase);
-					
-					//alert("succcess antes: " + url);
-					//alert("succcess depois: " + data.getResponseHeader("Location"));
-					
-					//window.location.href=url;
-				//}
-=======
 				if(textStatus == 'success'){
 					if (document.referrer != undefined && document.referrer != ""){
 						urlBase=document.referrer;
@@ -226,7 +213,6 @@ Login.LoginSistemas = (function() {
 					}
 					window.location.href=url;
 				}
->>>>>>> upstream/master
 			}
 		});
 	}

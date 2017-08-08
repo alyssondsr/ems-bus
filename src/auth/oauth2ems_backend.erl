@@ -75,7 +75,6 @@ stop() ->
 authenticate_user({Login, Password}, _) ->
     case ems_user:authenticate_login_password(Login, Password) of
 		ok ->	{ok, {<<>>,Login}};
-		%% Padronizar o erro conforme o RFC 6749
 		_ -> {error, unauthorized_user}
 	end.
 authenticate_client({ClientId, Secret},_) ->

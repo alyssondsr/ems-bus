@@ -23,7 +23,7 @@
 # -----------------------------------------------------------------------------------------------------
 # 28/11/2016  Everton Agilar     Release inicial do script de release
 # 05/03/2017  Everton Agilar     Improve release to deb and rpm
-#
+# 06/07/2017  Everton Agilar     New: --skip_build
 #
 #
 #
@@ -37,6 +37,14 @@ RELEASE_PATH=$(cd $WORKING_DIR/../../releases/ && pwd)
 GIT_RELEASE_REPO=https://github.com/erlangms/releases
 BUILD_RPM_FLAG="$( rpmbuild --version > /dev/null 2>&1 && echo 'true' || echo 'false')"  
 BUILD_DEB_FLAG="$( dpkg-deb --version > /dev/null 2>&1 && echo 'true' || echo 'false')"  
+SKIP_BUILD="false"
+
+# Identify the linux distribution: ubuntu, debian, centos
+LINUX_DISTRO=$(awk -F"=" '{ if ($1 == "ID"){ 
+								gsub("\"", "", $2);  print $2 
+							} 
+						  }' /etc/os-release)
+
 
 # Imprime uma mensagem e termina o script
 # Parâmetros:
@@ -88,7 +96,11 @@ clean(){
 # show help 
 help(){
 	echo "release.sh tool"
-	echo "How to use: ./release.sh --rpm or --deb"
+	echo "How to use: ./release.sh"
+	echo
+	echo "Additional parameters:"
+	echo "  --skip_build    -> skip build with rebar"
+	exit 1
 }
 
 
@@ -122,8 +134,7 @@ push_release(){
 }
 
 
-# Build relase
-build(){
+make_release(){
 	cd $WORKING_DIR
 
 	# Pega a versão dop build do barramneto que está no arquivo src/ems_bus.app.src
@@ -133,25 +144,34 @@ build(){
 
 
 	# ########## Recompila todo projeto antes de gerar a release ########## 
-	echo 'Recompilando os fontes...'
+	
 	cd ..
-	rm -f erl_crash.dump
-	rm -rf priv/db
-	rm -rf priv/log
-	#rebar clean 1> /dev/null || die "Falha ao limpar os fontes!"
-	#rebar get-deps 1>/dev/null || die "Falha ao obter as dependências!"
-	rebar compile 1> /dev/null || die "Falha ao recompilar os fontes!"
+	if [ "$SKIP_BUILD" = "false" ]; then
+		echo 'Recompilando os fontes com rebar...'
+		./build.sh
+	else
+		echo "Pula build com rebar..."
+	fi
+
+
+	# rebar está instalado
+	#if ! rebar --version 2> /dev/null ]; then
+	#	if [ "$LINUX_DISTRO" = "ubuntu" ]; then
+	#		echo "O software de build rebar não está instalado mas eu posso instalar para você!"
+	#		sudo apt-get install rebar
+	#	fi
+	#fi
+
 
 	# ******** Gera o release na pasta rel *********
 	cd rel
 	echo 'Gerando release com rebar...'
-	rebar compile generate || die 'Falha ao gerar o release com rebar compile generate!'
+	../tools/rebar/rebar compile generate || die 'Falha ao gerar o release com rebar compile generate!'
 
 
 	# Renomeia a pasta gerada e o nome do script ems_bus para ems-bus
 	mv ems_bus ems-bus || die 'Não foi possível renomear a pasta ems_bus para ems-bus!'
 	mv ems-bus/bin/ems_bus ems-bus/bin/ems-bus
-	rm -rf ems-bus/priv/www/
 
 
 	# Cria o link simbólico da pasta priv para a lib do projeto ems_bus-$VERSION/priv
@@ -160,7 +180,6 @@ build(){
 	# Faz algumas limpezas para não ir lixo no pacote
 	rm -Rf log || die 'Não foi possível remover a pasta log na limpeza!'
 	rm -rf priv/db || die 'Não foi possível remover a pasta db na limpeza!'
-	rm -rf priv/www
 	cd ..
 
 
@@ -302,11 +321,22 @@ build(){
 
 # *************** main ***************
 
-# check --help parameter
-if [ "$1" = "--help" ]; then
-	help
-	exit 0
-fi
+# Read command line parameters
+for P in $*; do
+	if [[ "$P" =~ ^--.+$ ]]; then
+		if [ "$P" = "--help" ]; then
+			help
+		elif [ "$P" = "--skip_build" ]; then
+			SKIP_BUILD="true"
+		else
+			echo "Invalid parameter: $P"
+			help
+		fi
+	else
+		echo "Invalid parameter: $P"
+		help
+	fi
+done
 
 
 # check remove link to fix Unable to generate spec: read file info
@@ -320,7 +350,7 @@ fi
 
 
 clean
-build
+make_release
 push_release
 clean
 cd $WORKING_DIR

@@ -15,7 +15,7 @@
 			"primary_key" : "PesCodigoPessoa"
 		},
 		"lang" : "erlang",
-		"debug" : false,
+		"authorization" : "public",
 		"querystring": [
 				{
 					"name": "filter",
@@ -93,7 +93,7 @@
 			"table_name" : "Tbl_Cursos"
 		},
 		"lang" : "erlang",
-		"debug" : false,
+		"authorization" : "public",
 		"querystring": [
 				{
 					"name": "filter",
@@ -104,7 +104,7 @@
 				{
 					"name": "fields",
 					"type": "string",
-					"default" : "",
+					"default" : "nome_curso",
 					"comment": "Campos que devem ser retornados na pesquisa"
 				},
 				{
@@ -122,11 +122,12 @@
 				{
 					"name": "sort",
 					"type": "string",
-					"default" : "",
+					"default" : "cod_curso",
 					"comment": "Campos que devem ser ordenados"
 				}
 			]	
 	},
+	
 
 	{
 		"name": "/hackathon/cursos/:id",
@@ -173,7 +174,7 @@
 			"table_name" : "Tbl_Ofertas"
 		},
 		"lang" : "erlang",
-		"debug" : false,
+		"authorization" : "public",
 		"querystring": [
 				{
 					"name": "filter",
@@ -225,7 +226,7 @@
 			"primary_key" : "CamCodigo"
 		},
 		"lang" : "erlang",
-		"debug" : false,
+		"authorization" : "public",
 		"querystring": [
 				{
 					"name": "filter",

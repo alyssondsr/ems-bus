@@ -26,6 +26,11 @@
 		 mode_debug/1,
 		 set_level/1,
 		 show_response/1,
+		 log_file_tail/0,
+		 log_file_tail/1,
+		 log_file_head/0,
+		 log_file_head/1,
+		 log_file_name/0,
 		 format_warn/1, 
 		 format_warn/2,
 		 format_error/1, 
@@ -137,6 +142,20 @@ set_level(Level) ->
 show_response(Value) -> 
 	gen_server:cast(?SERVER, {show_response, Value}). 
 
+log_file_head() ->
+	gen_server:call(?SERVER, {log_file_head, 80}). 		
+
+log_file_head(N) ->
+	gen_server:call(?SERVER, {log_file_head, N}). 		
+
+log_file_tail() ->
+	gen_server:call(?SERVER, {log_file_tail, 80}). 		
+
+log_file_tail(N) ->
+	gen_server:call(?SERVER, {log_file_tail, N}). 		
+
+log_file_name() ->
+	gen_server:call(?SERVER, log_file_name). 		
 
 % write direct messages to console
 format_warn(Message) ->	io:format("\033[0;33m~s\033[0m", [Message]).
@@ -150,6 +169,8 @@ format_debug(Message, Params) -> io:format("\033[0;34m~s\033[0m", [io_lib:format
 
 format_alert(Message) ->	io:format("\033[0;46m~s\033[0m", [Message]).
 format_alert(Message, Params) ->	io:format("\033[0;46m~s\033[0m", [io_lib:format(Message, Params)]).
+
+
 
 
 %%====================================================================
@@ -204,7 +225,18 @@ handle_call({write_msg, Tipo, Msg, Params}, _From, State) ->
 
 handle_call(sync_buffer, _From, State) ->
 	NewState = sync_buffer(State),
-	{reply, ok, NewState}.
+	{reply, ok, NewState};
+
+handle_call(log_file_name, _From, State = #state{log_file_name = FileNameLog}) ->
+	{reply, FileNameLog, State};
+
+handle_call({log_file_head, N}, _From, State) ->
+	Result = log_file_head(State, N),
+	{reply, Result, State};
+
+handle_call({log_file_tail, N}, _From, State) ->
+	Result = log_file_tail(State, N),
+	{reply, Result, State}.
 
 handle_info(checkpoint_tela, State) ->
    NewState = sync_buffer_tela(State),
@@ -242,7 +274,7 @@ checkpoint_arquive_log(State = #state{log_file_handle = IODevice}, Immediate) ->
 	close_filename_device(IODevice),
 	case open_filename_device() of
 		{ok, LogFileName, IODevice2} ->
-			ems_logger:info("ems_logger open the log file ~p for append.", [LogFileName]),
+			ems_logger:info("ems_logger open ~p for append.", [LogFileName]),
 			State2 = State#state{log_file_name = LogFileName, 
 								 log_file_handle = IODevice2,
 								 sync_buffer_error_count = 0};
@@ -276,6 +308,22 @@ open_filename_device(LogFileName) ->
 			end;
 		{error, Reason} = Error -> 
 			ems_logger:error("ems_logger failed to create log file dir. Reason: ~p.", [Reason]),
+			Error
+	end.
+
+log_file_head(#state{log_file_name = LogFileName}, N) ->
+	case ems_util:head_file(LogFileName, N) of
+		{ok, List} -> {ok, List};
+		{error, Reason} = Error -> 
+			ems_logger:error("ems_logger failed to open log file for read. Reason: ~p.", [Reason]),
+			Error
+	end.
+
+log_file_tail(#state{log_file_name = LogFileName}, N) ->
+	case ems_util:tail_file(LogFileName, N) of
+		{ok, List} -> {ok, List};
+		{error, Reason} = Error -> 
+			ems_logger:error("ems_logger failed to open log file for read. Reason: ~p.", [Reason]),
 			Error
 	end.
 

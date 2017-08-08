@@ -36,6 +36,8 @@
 		 get_rowid_and_params_from_url/2,
 		 string_is_integer/1,
 		 read_file_as_map/1,
+		 read_file_as_list/1,
+		 tail_file/2,
 		 node_is_live/1,
 		 get_node_name/0,
 		 get_priv_dir/0,
@@ -63,7 +65,9 @@
 		 encrypt_public_key/2,
 		 decrypt_private_key/2,
 		 open_file/1,
-		 is_cpf_valid/1, is_cnpj_valid/1]).
+		 is_cpf_valid/1, is_cnpj_valid/1, 
+		 replacenth/3,
+		 ip_list/0]).
 
 
 %% Retorna o hash da url e os parâmetros do request
@@ -621,6 +625,31 @@ read_file_as_map(FileName) ->
 		Error -> Error
 	end.
 
+-spec read_file_as_list(string()) -> list().
+read_file_as_list(FileName) ->
+  {ok, IO} = file:open( FileName, [read] ),
+  read_file_as_list( io:get_line(IO, ''), IO, [] ).
+
+read_file_as_list( eof, _IO, Acc ) -> lists:reverse( Acc );
+read_file_as_list( {error, _Error}, _IO, Acc ) -> lists:reverse( Acc );
+read_file_as_list( Line, IO, Acc ) -> read_file_as_list( io:get_line(IO, ''), IO, [Line | Acc] ).
+
+
+-spec head_file(string(), non_neg_integer()) -> list().
+head_file(FileName, N) ->
+	L = read_file_as_list(FileName),
+	{ok, lists:sublist(L, N)}.
+
+-spec tail_file(string(), non_neg_integer()) -> list().
+tail_file(FileName, N) ->
+	L = read_file_as_list(FileName),
+	Len = length(L),
+	case Len > N of 	
+		true ->	{ok, lists:nthtail(Len-N, L)};
+		false -> {ok, L}
+	end.
+
+
 -spec replace(string(), string(), string()) -> string().
 replace(Subject, Var, VarToReplace) -> 
 	re:replace(Subject, Var, VarToReplace, [global, {return, list}]).
@@ -765,3 +794,35 @@ load_erlang_module(FileName) ->
 			end;
 		false -> {error, enoent}
 	end.
+
+
+replacenth(Index,Value,List) ->
+ replacenth(Index-1,Value,List,[],0).
+
+replacenth(ReplaceIndex,Value,[_|List],Acc,ReplaceIndex) ->
+ lists:reverse(Acc)++[Value|List];
+replacenth(ReplaceIndex,Value,[V|List],Acc,Index) ->
+ replacenth(ReplaceIndex,Value,List,[V|Acc],Index+1).
+
+
+ip_list()->
+	 case inet:getifaddrs() of
+		{ok, List} ->
+			CheckIfUpFunc = fun(P) ->
+				{flags, Flags} = lists:keyfind(flags, 1, P),
+				lists:member(running, Flags) andalso lists:member(up, Flags)
+			end,
+			List2 = [ lists:keyfind(addr, 1, P) || {_, P} <- List, CheckIfUpFunc(P) ],
+			List3 = [ element(2, X) || X <- List2, is_tuple(X) ],
+			List4 = [ X || X <- List3, tuple_size(X) == 4 ],
+			{ok, List4};
+		Error -> Error
+	end.
+	 
+
+	 
+	 
+	 
+	 
+	 
+

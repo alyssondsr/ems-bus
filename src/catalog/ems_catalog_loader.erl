@@ -346,11 +346,28 @@ make_ets_catalog([H = {_Rowid, #service{type = Type}}|T]) ->
 	make_ets_catalog(T). 	
 
 
-parse_tcp_listen_address(ListenAddress) ->
-	lists:map(fun(IP) -> 
-					{ok, L2} = inet:parse_address(IP),
-					L2 
-			  end, ListenAddress).
+parse_tcp_listen_address(ListenAddress, CatName) ->
+	parse_tcp_listen_address_t(ListenAddress, CatName, []).
+parse_tcp_listen_address_t([], _, Result) -> Result;
+parse_tcp_listen_address_t([H|T], CatName, Result) ->
+	case inet:parse_address(H) of
+		{ok, {0, 0, 0, 0}} ->
+			case ems_util:ip_list() of
+				{ok, IpList} -> IpList;
+				{error, Reason} ->
+					ems_logger:format_warn("ems_catalog_loader was unable to get the list of available device ips. Reason: ~p.\n", [Reason]),
+					[]
+			end;
+		{ok, L2} -> 
+			case lists:member(L2, Result) of
+				true -> parse_tcp_listen_address_t(T, CatName, Result);
+				false -> parse_tcp_listen_address_t(T, CatName, [L2|Result])
+			end;
+		{error, einval} -> 
+			ems_logger:format_warn("ems_catalog_loader parse invalid IP ~s on property tcp_listen_address of catalog ~p.\n", [H, CatName]),
+			parse_tcp_listen_address_t(T, CatName, Result)
+	end.
+	
 
 parse_allowed_address_t(all) -> all;
 parse_allowed_address_t(undefined) -> undefined;
@@ -449,10 +466,15 @@ parse_catalog([H|T], Cat2, Cat3, Cat4, CatK, Id, Conf) ->
 						OAuth2TokenEncrypt = maps:get(<<"oauth2_token_encrypt">>, H, false),
 						Debug = ems_util:binary_to_bool(maps:get(<<"debug">>, H, false)),
 						UseRE = maps:get(<<"use_re">>, H, false),
-						SchemaIn = parse_schema(maps:get(<<"schema_in">>, H, null)),
-						SchemaOut = parse_schema(maps:get(<<"schema_out">>, H, null)),
-						PoolSize = parse_schema(maps:get(<<"pool_size">>, H, 1)),
-						PoolMax = parse_schema(maps:get(<<"pool_max">>, H, 1)),
+						SchemaIn = maps:get(<<"schema_in">>, H, null),
+						SchemaOut = maps:get(<<"schema_out">>, H, null),
+						PoolSize = ems_config:getConfig(<<"pool_size">>, Name, maps:get(<<"pool_size">>, H, 1)),
+ 						PoolMax0 = ems_config:getConfig(<<"pool_max">>, Name, maps:get(<<"pool_max">>, H, 1)),
+						% Ajusta o pool_max para o valor de pool_size se for menor
+						case PoolMax0 < PoolSize of
+							true -> PoolMax = PoolSize;
+							false -> PoolMax = PoolMax0
+						end,
 						Timeout = maps:get(<<"timeout">>, H, ?SERVICE_TIMEOUT),
 						Middleware = parse_middleware(maps:get(<<"middleware">>, H, undefined)),
 						CacheControl = maps:get(<<"cache_control">>, H, ?CACHE_CONTROL_1_SECOND),
@@ -461,6 +483,7 @@ parse_catalog([H|T], Cat2, Cat3, Cat4, CatK, Id, Conf) ->
 						ContentType = maps:get(<<"content_type">>, H, ?CONTENT_TYPE_JSON),
 						Path = parse_path_catalog(maps:get(<<"path">>, H, <<>>), Conf#config.static_file_path),
 						RedirectUrl = maps:get(<<"redirect_url">>, H, <<>>),
+						Protocol = maps:get(<<"protocol">>, H, <<>>),
 						valida_lang(Lang),
 						valida_name_service(Name),
 						valida_type_service(Type),
@@ -475,11 +498,11 @@ parse_catalog([H|T], Cat2, Cat3, Cat4, CatK, Id, Conf) ->
 						valida_bool(OAuth2WithCheckConstraint),
 						valida_bool(OAuth2TokenEncrypt),
 						ListenAddress = ems_util:binlist_to_list(maps:get(<<"tcp_listen_address">>, H, Conf#config.tcp_listen_address)),
-						ListenAddress_t = parse_tcp_listen_address(ListenAddress),
+						ListenAddress_t = parse_tcp_listen_address(ListenAddress, Name),
 						AllowedAddress = parse_allowed_address(maps:get(<<"tcp_allowed_address">>, H, Conf#config.tcp_allowed_address)),
 						AllowedAddress_t = parse_allowed_address_t(AllowedAddress),
 						MaxConnections = maps:get(<<"tcp_max_connections">>, H, [?HTTP_MAX_CONNECTIONS]),
-						Port = parse_tcp_port(maps:get(<<"tcp_port">>, H, undefined)),
+						Port = parse_tcp_port(ems_config:getConfig(<<"tcp_port">>, Name, maps:get(<<"tcp_port">>, H, undefined))),
 						Ssl = maps:get(<<"tcp_ssl">>, H, undefined),
 						case Ssl of
 							undefined ->
@@ -516,7 +539,7 @@ parse_catalog([H|T], Cat2, Cat3, Cat4, CatK, Id, Conf) ->
 														 ListenAddress, AllowedAddress, 
 														 Port, MaxConnections,
 														 IsSsl, SslCaCertFile, SslCertFile, SslKeyFile,
-														 OAuth2WithCheckConstraint, OAuth2TokenEncrypt),
+														 OAuth2WithCheckConstraint, OAuth2TokenEncrypt, Protocol),
 						case UseRE of
 							true -> 
 								Service = new_service_re(Rowid, IdBin, Name, Url2, 
@@ -536,7 +559,7 @@ parse_catalog([H|T], Cat2, Cat3, Cat4, CatK, Id, Conf) ->
 														   ListenAddress, ListenAddress_t, AllowedAddress, 
 														   AllowedAddress_t, Port, MaxConnections,
 														   IsSsl, SslCaCertFile, SslCertFile, SslKeyFile,
-														   OAuth2WithCheckConstraint, OAuth2TokenEncrypt),
+														   OAuth2WithCheckConstraint, OAuth2TokenEncrypt, Protocol),
 								case Type of
 									<<"KERNEL">> -> parse_catalog(T, Cat2, Cat3, Cat4, [Service|CatK], Id+1, Conf);
 									_ -> parse_catalog(T, Cat2, [Service|Cat3], [ServiceView|Cat4], CatK, Id+1, Conf)
@@ -560,7 +583,7 @@ parse_catalog([H|T], Cat2, Cat3, Cat4, CatK, Id, Conf) ->
 														ListenAddress, ListenAddress_t, AllowedAddress, 
 														AllowedAddress_t, Port, MaxConnections,
 														IsSsl, SslCaCertFile, SslCertFile, SslKeyFile,
-														OAuth2WithCheckConstraint, OAuth2TokenEncrypt),
+														OAuth2WithCheckConstraint, OAuth2TokenEncrypt, Protocol),
 								case Type of
 									<<"KERNEL">> -> parse_catalog(T, Cat2, Cat3, Cat4, [Service|CatK], Id+1, Conf);
 									_ -> parse_catalog(T, [{Rowid, Service}|Cat2], Cat3, [ServiceView|Cat4], CatK, Id+1, Conf)
@@ -590,9 +613,6 @@ compile_page_module(Page, Rowid, Conf) ->
 	end.
 
 	
-parse_schema(null) -> null;
-parse_schema(Name) -> Name.
-
 parse_datasource(undefined, _, _) -> undefined;
 parse_datasource(M, Rowid, _) when erlang:is_map(M) -> ems_db:create_datasource_from_map(M, Rowid);
 parse_datasource(DsName, _Rowid, Conf) -> 
@@ -652,7 +672,7 @@ new_service_re(Rowid, Id, Name, Url, Service, ModuleName, ModuleNameCanonical, F
 			   ListenAddress, ListenAddress_t, AllowedAddress, 
 			   AllowedAddress_t, Port, MaxConnections,
 			   IsSsl, SslCaCertFile, SslCertFile, SslKeyFile,
-			   OAuth2WithCheckConstraint, OAuth2TokenEncrypt) ->
+			   OAuth2WithCheckConstraint, OAuth2TokenEncrypt, Protocol) ->
 	PatternKey = ems_util:make_rowid_from_url(Url, Type),
 	{ok, Id_re_compiled} = re:compile(PatternKey),
 	#service{
@@ -709,7 +729,8 @@ new_service_re(Rowid, Id, Name, Url, Service, ModuleName, ModuleNameCanonical, F
 				tcp_ssl_certfile = SslCertFile,
 				tcp_ssl_keyfile = SslKeyFile,
 				oauth2_with_check_constraint = OAuth2WithCheckConstraint,
-				oauth2_token_encrypt = OAuth2TokenEncrypt
+				oauth2_token_encrypt = OAuth2TokenEncrypt,
+				protocol = Protocol
 			}.
 
 new_service(Rowid, Id, Name, Url, Service, ModuleName, ModuleNameCanonical, FunctionName,
@@ -721,7 +742,7 @@ new_service(Rowid, Id, Name, Url, Service, ModuleName, ModuleNameCanonical, Func
 			ListenAddress, ListenAddress_t, AllowedAddress, AllowedAddress_t, 
 			Port, MaxConnections,
 			IsSsl, SslCaCertFile, SslCertFile, SslKeyFile,
-			OAuth2WithCheckConstraint, OAuth2TokenEncrypt) ->
+			OAuth2WithCheckConstraint, OAuth2TokenEncrypt, Protocol) ->
 	#service{
 				rowid = Rowid,
 				id = Id,
@@ -775,7 +796,8 @@ new_service(Rowid, Id, Name, Url, Service, ModuleName, ModuleNameCanonical, Func
 				tcp_ssl_certfile = SslCertFile,
 				tcp_ssl_keyfile = SslKeyFile,
 				oauth2_with_check_constraint = OAuth2WithCheckConstraint,
-				oauth2_token_encrypt = OAuth2TokenEncrypt
+				oauth2_token_encrypt = OAuth2TokenEncrypt,
+				protocol = Protocol
 			}.
 
 new_service_view(Id, Name, Url, ModuleName, FunctionName, Type, Enable,
@@ -787,7 +809,7 @@ new_service_view(Id, Name, Url, ModuleName, FunctionName, Type, Enable,
 				  ListenAddress, AllowedAddress, 
 				  Port, MaxConnections,
 				  IsSsl, SslCaCertFile, SslCertFile, SslKeyFile,
-				  OAuth2WithCheckConstraint, OAuth2TokenEncrypt) ->
+				  OAuth2WithCheckConstraint, OAuth2TokenEncrypt, Protocol) ->
 	Service = #{<<"id">> => Id,
 				<<"name">> => Name,
 				<<"url">> => Url,
@@ -825,7 +847,8 @@ new_service_view(Id, Name, Url, ModuleName, FunctionName, Type, Enable,
 				<<"tcp_ssl_certfile">> => SslCertFile,
 				<<"tcp_ssl_keyfile">> => SslKeyFile,
 				<<"oauth2_with_check_constraint">> => OAuth2WithCheckConstraint,
-				<<"oauth2_token_encrypt">> => OAuth2TokenEncrypt
+				<<"oauth2_token_encrypt">> => OAuth2TokenEncrypt,
+				<<"protocol">> => Protocol
 				
 },
 	Service.

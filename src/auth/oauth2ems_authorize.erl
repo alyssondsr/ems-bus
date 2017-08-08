@@ -42,15 +42,18 @@ code_request(Request = #request{authorization = Authorization}) ->
     Scope       = ems_request:get_querystring(<<"scope">>, [],Request),
     case ems_http_util:parse_basic_authorization_header(Authorization) of
 		{ok, User, Passwd} ->
+			io:format("\n\n\n User: ~p \n\n\n",[User]),
+			io:format("\n\n\n Passwd: ~p \n\n\n",[Passwd]),
 		    Authz = oauth2:authorize_code_request({User,list_to_binary(Passwd)}, ClientId, RedirectUri, Scope, []),
+			io:format("\n\n\n Authz: ~p \n\n\n",[Authz]),
 			case issue_code(Authz) of
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
 					LocationPath = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
-					redirect(Request, LocationPath);
+					redirect1(Request, LocationPath);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					redirect(Request, LocationPath)
+					redirect1(Request, LocationPath)
 				end;
 			
 		_ ->
@@ -61,10 +64,10 @@ code_request(Request = #request{authorization = Authorization}) ->
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
 					Location = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
-					redirect(Request, Location);
+					redirect1(Request, Location);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					redirect(Request, LocationPath)
+					redirect1(Request, LocationPath)
 				end
 		end.
 implicit_token_request(Request = #request{authorization = Authorization}) ->
@@ -237,8 +240,22 @@ bad(Request, Reason) ->
 		response_data = ResponseData}
 	}.
 redirect(Request, LocationPath) ->
-	% mudar code para 302
+	io:format("\n\n\n aqui2 \n\n\n"),
+
 	{ok, Request#request{code = 302, 
+		 response_data = <<"{}">>,
+		 response_header = #{
+					<<"location">> => LocationPath
+					}
+		}
+	}.
+
+redirect1(Request, LocationPath) ->
+			io:format("\n\n\n LocationPath: ~p \n\n\n",[LocationPath]),
+
+	% mudar code para 302
+	io:format("\n\n\n aqui \n\n\n"),
+	{ok, Request#request{code = 200, 
 		 response_data = <<"{}">>,
 		 response_header = #{
 					<<"location">> => LocationPath

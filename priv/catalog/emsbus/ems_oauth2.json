@@ -14,7 +14,7 @@
 				"name": "response_type",
 				"type": "string",
 				"default" : "0",
-				"comment": ""
+				"comment": "The Expected response"
 			},
 			{
 				"name": "client_id",
@@ -24,22 +24,22 @@
 			{
 				"name": "username",
 				"type": "string",
-				"comment": "Username"
+				"comment": "The resource owner username"
 			},
 			{
 				"name": "password",
 				"type": "string",
-				"comment": "Password"
+				"comment": "The resource owner password"
 			},
 			{
 				"name": "redirect_uri",
 				"type": "string",
-				"comment": ""
+				"comment": "Redirect URI"
 			},
 			{
 				"name": "scope",
 				"type": "string",
-				"comment": ""
+				"comment": "The scope of the access request"
 			},
 			{
 				"name": "secret",
@@ -74,7 +74,7 @@
 				"name": "grant_type",
 				"type": "string",
 				"default" : "0",
-				"comment": ""
+				"comment": "The grant type"
 			},
 			{
 				"name": "client_id",
@@ -84,42 +84,42 @@
 			{
 				"name": "username",
 				"type": "string",
-				"comment": "Username"
+				"comment": "The resource owner username"
 			},
 			{
 				"name": "password",
 				"type": "string",
-				"comment": "Password"
+				"comment": "The resource owner password"
 			},
 			{
 				"name": "redirect_uri",
 				"type": "string",
-				"comment": ""
+				"comment": "Redirect URI"
 			},
 			{
 				"name": "scope",
 				"type": "string",
-				"comment": ""
+				"comment": "The scope of the access request"
 			},
 			{
 				"name": "client_secret",
 				"type": "string",
-				"comment": ""
+				"comment": "The client secret"
 			},
 			{
 				"name": "secret",
 				"type": "string",
-				"comment": ""
+				"comment": "The client secret"
 			},
 			{
 				"name": "code",
 				"type": "string",
-				"comment": ""
+				"comment": "The authorization code"
 				},
 			{
 				"name": "state",
 				"type": "string",
-				"comment": ""
+				"comment": "The state"
 				},
 			{
 				"name": "refresh_token",
@@ -153,7 +153,7 @@
 			{
 				"name": "password",
 				"type": "string",
-				"comment": "Password"
+				"comment": "User Password"
 			},			
 			{
 				"name": "redirect_uri",

@@ -57,6 +57,17 @@
 						  ctrl_insert,
 						  ctrl_update
           }).
+          
+-record(user_control_access, {id :: non_neg_integer(),				%% identifica o registro de acesso a página
+							  codigo :: integer(),
+							  name :: string(),
+							  uri :: string(),
+							  user_id :: integer(),
+							  sis_id :: integer(),
+							  visualize :: binary(),
+							  ctrl_insert,
+							  ctrl_update
+}).
 
 
 -record(client, {id :: non_neg_integer(), 					%% identifica o client internamente
@@ -124,7 +135,8 @@
 					  req_hash,
 					  host :: binary(),							%% Ip do barramento
 					  filename :: string(),
-					  referer :: binary()
+					  referer :: binary(),
+					  access_token :: binary()
 				  }).
 
 
@@ -143,6 +155,7 @@
 							 pid_module,
 							 pid_module_ref,
 							 owner,
+							 owner_ref,
 							 pool_name :: string(),
 							 parent = undefined :: string()
 							}).
@@ -208,6 +221,7 @@
 					tcp_ssl_cacertfile,
 					tcp_ssl_certfile,
 					tcp_ssl_keyfile,
+					protocol :: binary(),
 					oauth2_with_check_constraint = false :: boolean(),
 					oauth2_token_encrypt = false :: boolean()
 				}).
