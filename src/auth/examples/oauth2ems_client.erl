@@ -13,8 +13,8 @@
 -define(REDIRECT_URI, <<"http://127.0.0.1:2301/callback">>).
 -define(CLIENTID, <<"q1w2">>).
 -define(SECRET, <<"123456">>).
--define(ACCESS_TOKEN_URL, "https://127.0.0.1:2302/authorize").
--define(SERVICO, <<"https://127.0.0.1:2302/netadm/info">>).
+-define(ACCESS_TOKEN_URL, "http://127.0.0.1:2301/authorize").
+-define(SERVICO, <<"http://127.0.0.1:2301/netadm/info">>).
 -define(SCOPE, <<"email">>).
 
 %-define(REDIRECT_URI, <<"https://164.41.120.42:2302/callback">>).
@@ -53,6 +53,7 @@ acessa_servico(Token) ->
 
 request(Authorization,Data)->
 	Response = httpc:request(post,{?ACCESS_TOKEN_URL, [{"Authorization", Authorization}], "application/x-www-form-urlencoded",Data}, [], []),		
+	%io:format("\n\n\n Response ~s \n\n\n",[Response]),
 	format(Response).
 
 format({ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}})->

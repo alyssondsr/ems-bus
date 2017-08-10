@@ -15,14 +15,14 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 		"POST" -> ems_request:get_querystring(<<"grant_type">>, <<>>, Request)
 	end,
     Result = case TypeAuth of
-			<<"password">> -> password_grant(Request);
-			<<"client_credentials">> ->	client_credentials_grant(Request);
-			<<"token">> -> authorization_request(Request);
-			<<"code">> ->	authorization_request(Request);	
-			<<"authorization_code">> ->		access_token_request(Request,TypeAuth);
-			<<"mac">> ->		access_token_request(Request,TypeAuth);
-			<<"refresh_token">> ->	refresh_token_request(Request);	
-			 _ -> {error, invalid_oauth2_grant}
+		<<"password">> -> password_grant(Request);
+		<<"client_credentials">> ->	client_credentials_grant(Request);
+		<<"token">> -> authorization_request(Request);
+		<<"code">> ->	authorization_request(Request);	
+		<<"authorization_code">> ->		access_token_request(Request,TypeAuth);
+		<<"mac">> ->		access_token_request(Request,TypeAuth);
+		<<"refresh_token">> ->	refresh_token_request(Request);	
+		 _ -> {error, invalid_oauth2_grant}
 	end,  
 	case Result of
 		{ok, ResponseData} -> 	ok(Request, ResponseData);		
@@ -42,10 +42,7 @@ code_request(Request = #request{authorization = Authorization}) ->
     Scope       = ems_request:get_querystring(<<"scope">>, [],Request),
     case ems_http_util:parse_basic_authorization_header(Authorization) of
 		{ok, User, Passwd} ->
-			io:format("\n\n\n User: ~p \n\n\n",[User]),
-			io:format("\n\n\n Passwd: ~p \n\n\n",[Passwd]),
 		    Authz = oauth2:authorize_code_request({User,list_to_binary(Passwd)}, ClientId, RedirectUri, Scope, []),
-			io:format("\n\n\n Authz: ~p \n\n\n",[Authz]),
 			case issue_code(Authz) of
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
@@ -240,8 +237,6 @@ bad(Request, Reason) ->
 		response_data = ResponseData}
 	}.
 redirect(Request, LocationPath) ->
-	io:format("\n\n\n aqui2 \n\n\n"),
-
 	{ok, Request#request{code = 302, 
 		 response_data = <<"{}">>,
 		 response_header = #{
@@ -251,11 +246,8 @@ redirect(Request, LocationPath) ->
 	}.
 
 redirect1(Request, LocationPath) ->
-			io:format("\n\n\n LocationPath: ~p \n\n\n",[LocationPath]),
-
 	% mudar code para 302
-	io:format("\n\n\n aqui \n\n\n"),
-	{ok, Request#request{code = 200, 
+	{ok, Request#request{code = 302, 
 		 response_data = <<"{}">>,
 		 response_header = #{
 					<<"location">> => LocationPath

@@ -110,7 +110,7 @@
 		"result_cache" : 0,
 		"async": "false",
 		"type": "GET",
-		"authorization":"public",
+		"authorization":"oauth2",
 				"querystring": [
 			{
 				"name": "oauth_version",
