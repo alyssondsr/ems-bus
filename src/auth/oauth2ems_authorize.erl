@@ -117,7 +117,7 @@ client_credentials_grant(Request = #request{authorization = Authorization}) ->
 							issue_token(Auth);
 						Error -> Error
 					end;
-				false -> {error, einvalid_client_credentials}
+				false -> {error, invalid_client_credentials}
 			end;
 		false -> 			
 			Secret = ems_request:get_querystring(<<"client_secret">>, <<>>, Request),
@@ -175,13 +175,14 @@ access_token_request(Request = #request{authorization = Authorization},TypeAuth)
 							ClientId2 = list_to_binary(Login),
 							Secret = list_to_binary(Password),
 							Auth = oauth2:authorize_code_grant({ClientId2, Secret}, Code, RedirectUri, []),
+							%io:format("\n\n\n -s \n\n\n",[Auth]),
 							case TypeAuth of
 								<<"mac">> -> issue_mac_token(ClientId2,Secret);
 								<<"authorization_code">> -> issue_token_and_refresh(Auth)
 							end;						
-						_Error -> {error, invalid_request}
+						_Error -> {error, invalid_client}
 					end;
-				false -> {error, einvalid_request}
+				false -> {error, invalid_request}
 			end;
 		false -> 
 		Authz = oauth2:authorize_code_grant({ClientId, ClientSecret}, Code, RedirectUri, []),
