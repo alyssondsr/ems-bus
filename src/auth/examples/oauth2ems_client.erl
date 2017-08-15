@@ -17,11 +17,19 @@
 -define(SERVICO, <<"http://127.0.0.1:2301/netadm/info">>).
 -define(SCOPE, <<"email">>).
 
-%-define(REDIRECT_URI, <<"https://164.41.120.42:2302/callback">>).
+%-define(REDIRECT_URI, <<"http://164.41.120.42:2301/callback">>).
 %-define(CLIENTID, <<"43138f88cb30a7b692f0">>).
 %-define(SECRET, <<"b45266981d747535974047853c2bb8ab5bba01bd">>).
 %-define(ACCESS_TOKEN_URL, "https://github.com/login/oauth/access_token").
 %-define(SERVICO, <<"https://api.github.com/user">>).
+%-define(SCOPE, <<>>).
+
+
+%-define(CLIENTID, <<"v3m7smtarlsk668">>).
+%-define(SECRET, <<"	ljumioeejyn3p4a">>).
+%-define(ACCESS_TOKEN_URL, "https://api.dropboxapi.com/oauth2/token").
+%-define(SERVICO, <<"https://api.dropboxapi.com/2/users/get_current_account">>).
+%-define(SCOPE, <<>>).
 
 
 callback(Request) -> 
@@ -47,7 +55,7 @@ end.
 acessa_servico(Token) ->
 	URLbin =  <<?SERVICO/binary, "?access_token=", Token/binary>>,
 	URL = binary:bin_to_list(URLbin),			
-	{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Net}} = 
+	{ok, {{_Version, _Status, _ReasonPhrase}, _Headers, Net}} = 
 		httpc:request(get,{URL, []}, [], []),
 	Net.	
 

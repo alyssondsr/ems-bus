@@ -2,12 +2,12 @@
 
 -export([callback/1]).
 -include("../include/ems_schema.hrl").
--define(REDIRECT_URI, <<"https://127.0.0.1:2302/callback1">>).
+-define(REDIRECT_URI, <<"https://127.0.0.1:2344/callback1">>).
 -define(CLIENTID, <<"key">>).
 -define(SECRET, <<"secret">>).
 -define(OAUTH_VERSION, <<"1.0">>).
--define(ACCESS_TOKEN_URL, "https://127.0.0.1:2302/authorize").
--define(SERVICO, "https://127.0.0.1:2302/netadm/info").
+-define(ACCESS_TOKEN_URL, "https://127.0.0.1:2344/authorize").
+-define(SERVICO, "https://127.0.0.1:2344/netadm/info").
 -define(OAUTH_SIGNATURE_METHOD, <<"HMAC-SHA1">>).
 -define(SCOPE, <<>>).
 -define(TOKEN_TABLE, cli_tokens).
@@ -25,10 +25,14 @@ callback(Request) ->
 			Data = binary:bin_to_list(Databin),
 			case request(?ACCESS_TOKEN_URL,Data) of
 				{ok, AccessToken, TokenSecret} -> 
+					Nonce = binary:bin_to_list(base64:encode(crypto:rand_bytes(5))),
+					NonceEncode = list_to_binary(percent:url_encode(Nonce)),
+					io:format("\n Token = ~s e Nonce = ~s \n",[AccessToken,Nonce]),
 					PathBin =  <<"oauth_consumer_key=", ?CLIENTID/binary, "&oauth_signature_method=", ?OAUTH_SIGNATURE_METHOD/binary,
-					"&oauth_version=",?OAUTH_VERSION/binary, "&oauth_token=",AccessToken/binary>>,
+					"&oauth_version=",?OAUTH_VERSION/binary, "&oauth_token=",AccessToken/binary, "&oauth_nonce=",NonceEncode/binary>>,
 					{ok, Path} = format(PathBin,Consumer,?SERVICO,TokenSecret),
 					redirect(Request, ?SERVICO, Path);
+					%httpc:request(post,{?SERVICO, [], "application/x-www-form-urlencoded",Path}, [], []);
 				_ ->	bad(Request, "access_denied")				
 				
 			end			

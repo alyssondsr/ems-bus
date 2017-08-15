@@ -55,7 +55,7 @@ start() ->
     ems_user:insert(#user{login= <<"alyssondsr">>,password=ems_util:criptografia_sha1("123456")}),
     ems_client:insert(#client{codigo= <<"q1w2">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"http://127.0.0.1:2301/callback">>, scope= <<"email">>}),
     ems_client:insert(#client{codigo= <<"q1w2e3">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.43:2302/callback">>, scope= <<"email">>}),
-    ems_client:insert(#client{codigo= <<"key">>,secret=ems_util:criptografia_sha1("secret"), redirect_uri= <<"https://127.0.0.1:2302/callback1">>, scope= <<"email">>}),
+    ems_client:insert(#client{codigo= <<"key">>,secret=ems_util:criptografia_sha1("secret"), redirect_uri= <<"https://127.0.0.1:2344/callback1">>, scope= <<"email">>}),
     ems_client:insert(#client{codigo= <<"teste">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.34:2302/callback">>, scope= <<"email">>}),
     ems_client:insert(#client{codigo= <<"man">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://www.getpostman.com/oauth2/callback">>, scope= <<"email">>}),
     lists:foreach(fun(Table) ->

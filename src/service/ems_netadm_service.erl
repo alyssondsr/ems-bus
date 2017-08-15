@@ -77,17 +77,17 @@ threads(Request) ->
 	}.
 	
 info(Request) -> 
-	%case ems_oauth1:verify_token(Request) of 
-	%	ok ->
+	case ems_oauth1:verify_token(Request) of 
+		ok ->
 			ContentData = ranch_info(),
 			{ok, Request#request{code = 200, 
 						 response_data = ems_schema:to_json(ContentData)}
-			}.
-	%	_ -> 
-	%		{ok, Request#request{code = 401, 
-	%					 response_data = "{error: Deu ruim}"}
-	%		}
-	%end.
+			};
+		_ -> 
+			{ok, Request#request{code = 401, 
+						 response_data = "{error: Deu ruim}"}
+			}
+	end.
 
 ranch_info() ->	ranch_info(ranch:info(), []).
 

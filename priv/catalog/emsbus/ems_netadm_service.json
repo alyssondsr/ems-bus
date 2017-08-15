@@ -110,7 +110,7 @@
 		"result_cache" : 0,
 		"async": "false",
 		"type": "GET",
-		"authorization":"oauth2",
+		"authorization":"public",
 				"querystring": [
 			{
 				"name": "oauth_version",
@@ -131,6 +131,11 @@
 				"name": "oauth_signature_method",
 				"type": "string",
 				"comment": "Oauth Version"
+			},
+			{
+				"name": "oauth_nonce",
+				"type": "string",
+				"comment": "Access Token"
 			},
 			{
 				"name": "oauth_signature",

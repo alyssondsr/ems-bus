@@ -14,9 +14,11 @@
 -define(ACCESS_TOKEN_TABLE, access_tokens1).
 -define(TMP_TOKEN_TABLE, tmp_tokens).
 -define(TOKEN_TABLE, cli_tokens).
+-define(NONCE_TABLE, nonces).
 
 -define(TABLES, 	[?ACCESS_TOKEN_TABLE,
 					?TOKEN_TABLE,
+					?NONCE_TABLE,
 					?TMP_TOKEN_TABLE]).
 
 start() ->
@@ -84,13 +86,20 @@ serve_oauth_access_token(Request) ->
 verify_token(Request) ->
     serve_oauth(Request, fun(URL, Params, Consumer, Signature) ->
 	    Token = ems_request:get_querystring(<<"oauth_token">>, [],Request),
-		io:format("\n Token = ~s e Token = ~s \n",[Token,Token]),
+	    Nonce = ems_request:get_querystring(<<"oauth_nonce">>, [],Request),
+		io:format("\n Token = ~s e Nonce = ~s \n",[Token,Nonce]),
 	    case resolve_token(?ACCESS_TOKEN_TABLE,Token) of
 			{ok,{_,GrantCtx}} ->
-				RequestSecret = get_(GrantCtx,<<"oauth_token_secret">>),
-				case oauth:verify(binary:bin_to_list(Signature), "POST", URL, maps:to_list(Params), Consumer, binary:bin_to_list(RequestSecret)) of
-					true -> ok;
-					false ->{"error: invalid signature value."}
+				OauthNonce = get_(GrantCtx,<<"oauth_nonce">>),
+				case OauthNonce == Nonce of	
+				true -> 	{"error: invalid nonce."};
+				false -> 	
+					associate_nonce(Token, Nonce, GrantCtx),
+					RequestSecret = get_(GrantCtx,<<"oauth_token_secret">>),
+					case oauth:verify(binary:bin_to_list(Signature), "POST", URL, maps:to_list(Params), Consumer, binary:bin_to_list(RequestSecret)) of
+						true -> ok;
+						false ->{"error: invalid signature value."}
+					end
 				end;
 			_ -> {"error: invalid token."}
 		end
@@ -116,20 +125,32 @@ serve_oauth(Request = #request{uri = URL}, Fun) ->
 %%%===================================================================
 
 issue_token(AccessToken, Secret, Consumer, Callback) ->
-	Context = build_context(Consumer, Secret, Callback, <<>>),
+	Context = build_context(Consumer, Secret, Callback, <<>>,<<>>),
     {put(?TMP_TOKEN_TABLE,AccessToken,Context)}.
 
 issue_token(AccessToken, Secret, Consumer) ->
-	Context = build_context(Consumer, Secret,<<>>,<<>>),
+	Context = build_context(Consumer, Secret,<<>>,<<>>,<<>>),
     {put(?ACCESS_TOKEN_TABLE,AccessToken,Context)}.
     
+
 associate_verifier(RequestToken, Verifier, GrantCtx) ->
 	Consumer = get_(GrantCtx,<<"consumer">>),
 	RequestSecret = get_(GrantCtx,<<"oauth_token_secret">>),
 	Callback = get_(GrantCtx,<<"oauth_callback">>),
-	Context = build_context(Consumer, RequestSecret, Callback, Verifier),							
+	Context = build_context(Consumer, RequestSecret, Callback, Verifier,<<>>),							
 	update(?TMP_TOKEN_TABLE, RequestToken, Context),
 	{ok, Callback}.
+	
+	
+associate_nonce(Token, Nonce, GrantCtx) ->
+	Consumer = get_(GrantCtx,<<"consumer">>),
+	RequestSecret = get_(GrantCtx,<<"oauth_token_secret">>),
+	Callback = get_(GrantCtx,<<"oauth_callback">>),
+	Verifier = get_(GrantCtx,<<"oauth_verifier">>),
+	Context = build_context(Consumer, RequestSecret, Callback, Verifier,Nonce),							
+	update(?ACCESS_TOKEN_TABLE, Token, Context),
+	{ok}.
+
 
 resolve_token(Table,AccessToken) ->
     case get(Table, AccessToken) of
@@ -168,11 +189,15 @@ redirect(Request, RedirectUri, Path) ->
 		}
 	}.
   
-build_context(Consumer, RequestSecret, Callback, Verifier) ->
+build_context(Consumer, RequestSecret, Callback, Verifier,Nonce) ->
     [ {<<"consumer">>,  Consumer}
     , {<<"oauth_verifier">>,  Verifier}
     , {<<"oauth_callback">>,  Callback}
-    , {<<"oauth_token_secret">>, RequestSecret}].
+    , {<<"oauth_token_secret">>, RequestSecret}
+    , {<<"oauth_nonce">>, Nonce}].
+
+build_context(Nonce) ->
+    [ {<<"nonce">>,  Nonce}].
 
 get(Table, Key) ->
     case ets:lookup(Table, Key) of
