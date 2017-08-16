@@ -3,11 +3,11 @@
 -export([callback/1]).
 -include("../include/ems_schema.hrl").
 
-%-define(REDIRECT_URI, <<"https://164.41.120.43:2302/callback">>).
+%-define(REDIRECT_URI, <<"https://164.41.120.43:2344/callback">>).
 %-define(CLIENTID, <<"q1w2e3">>).
 %-define(SECRET, <<"123456">>).
-%-define(ACCESS_TOKEN_URL, "https://164.41.120.34:2302/authorize").
-%-define(SERVICO, <<"https://164.41.120.34:2302/netadm/info">>).
+%-define(ACCESS_TOKEN_URL, "https://164.41.120.34:2344/authorize").
+%-define(SERVICO, <<"https://164.41.120.34:2344/netadm/info">>).
 %-define(SCOPE, <<>>).
 
 -define(REDIRECT_URI, <<"http://127.0.0.1:2301/callback">>).
