@@ -9,7 +9,7 @@
         <collectionProp name="Arguments.arguments">
           <elementProp name="is_server" elementType="Argument">
             <stringProp name="Argument.name">is_server</stringProp>
-            <stringProp name="Argument.value">127.0.0.1</stringProp>
+            <stringProp name="Argument.value">164.41.120.43</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="is_port" elementType="Argument">
@@ -29,7 +29,7 @@
           </elementProp>
           <elementProp name="client_id" elementType="Argument">
             <stringProp name="Argument.name">client_id</stringProp>
-            <stringProp name="Argument.value">q1w2</stringProp>
+            <stringProp name="Argument.value">teste</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="secret" elementType="Argument">
@@ -39,7 +39,7 @@
           </elementProp>
           <elementProp name="redirect_url" elementType="Argument">
             <stringProp name="Argument.name">redirect_url</stringProp>
-            <stringProp name="Argument.value">http://127.0.0.1:2301/callback</stringProp>
+            <stringProp name="Argument.value">https://164.41.120.34:2344/callback</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="state" elementType="Argument">
@@ -63,7 +63,7 @@
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <stringProp name="LoopController.loops">1</stringProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">1000</stringProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
         <stringProp name="ThreadGroup.ramp_time">2</stringProp>
         <longProp name="ThreadGroup.start_time">1352451199000</longProp>
         <longProp name="ThreadGroup.end_time">1352451199000</longProp>
@@ -83,7 +83,7 @@
               <stringProp name="-1013136619">accesstoken</stringProp>
             </collectionProp>
             <collectionProp name="UserParameters.thread_values">
-              <collectionProp name="-1238695700">
+              <collectionProp name="2059795210">
                 <stringProp name="-139870448">YWx5c3NvbmRzcjpmRXFOQ2NvM1lxOWg1WlVnbEQzQ1pKVDRsQnM9</stringProp>
                 <stringProp name="-836031718">user1 </stringProp>
               </collectionProp>
@@ -237,7 +237,7 @@
                 <collectionProp name="HeaderManager.headers">
                   <elementProp name="" elementType="Header">
                     <stringProp name="Header.name">Authorization</stringProp>
-                    <stringProp name="Header.value">Basic cTF3MjoxMjM0NTY=</stringProp>
+                    <stringProp name="Header.value">Basic dGVzdGU6MTIzNDU2</stringProp>
                   </elementProp>
                 </collectionProp>
               </HeaderManager>
@@ -276,8 +276,8 @@
                   </collectionProp>
                 </elementProp>
                 <stringProp name="HTTPSampler.domain">${is_server}</stringProp>
-                <stringProp name="HTTPSampler.port">${is_port}</stringProp>
-                <stringProp name="HTTPSampler.protocol">http</stringProp>
+                <stringProp name="HTTPSampler.port">2344</stringProp>
+                <stringProp name="HTTPSampler.protocol">https</stringProp>
                 <stringProp name="HTTPSampler.contentEncoding"></stringProp>
                 <stringProp name="HTTPSampler.path">/authorize</stringProp>
                 <stringProp name="HTTPSampler.method">POST</stringProp>
