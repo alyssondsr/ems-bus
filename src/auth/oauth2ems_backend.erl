@@ -46,7 +46,7 @@
            }).
 
 %%%===================================================================
-%%% Teste
+%%% 
 %%%===================================================================
 
 start() ->
@@ -59,9 +59,9 @@ start() ->
     ems_client:insert(#client{codigo= <<"teste">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.34:2344/callback">>, scope= <<"email">>}),
     ems_client:insert(#client{codigo= <<"man">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://www.getpostman.com/oauth2/callback">>, scope= <<"email">>}),
     lists:foreach(fun(Table) ->
-                          ets:new(Table, [named_table, public])
-                  end,
-                  ?TABLES).
+			ets:new(Table, [named_table, public])
+		end,
+    ?TABLES).
 
 stop() ->
     lists:foreach(fun ets:delete/1, ?TABLES).

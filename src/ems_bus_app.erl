@@ -24,6 +24,7 @@ start(_StartType, StartArgs) ->
 					ems_dispatcher:start(),
 					ems_health:start(),
 					oauth2ems_backend:start(),
+					oauth2ems_mac:start(),
 					ems_oauth1:start(),
 					Ret = ems_bus_sup:start_link(StartArgs),
 					Conf = ems_config:getConfig(),

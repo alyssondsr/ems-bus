@@ -16,7 +16,10 @@
 authenticate(Service = #service{authorization = AuthorizationMode}, Request) ->
 	case AuthorizationMode of
 		http_basic -> do_basic_authorization(Service, Request);
-		oauth2 -> do_bearer_authorization(Service, Request);
+		oauth2 ->
+			%io:format("\n\n\n\n do_mac_authorization: ~p \n\n\n\n",[do_mac_authorization(Service, Request)]),
+			{do_mac_authorization(Service, Request),<<>>,<<>>};
+		oauth1 -> 	do_mac_authorization(Service, Request);
 		_ -> {ok, public, <<>>}
 	end.
 
@@ -53,6 +56,15 @@ do_bearer_authorization(Service, Req = #request{authorization = Authorization}) 
 		{ok, AccessToken} ->  do_oauth2_check_access_token(AccessToken, Service, Req);
 		Error -> Error
 	end.
+
+
+%%%%%%%%%%%%% MAC Token %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+do_mac_authorization(_, Req = #request{authorization = <<>>}) -> 	ems_oauth1:verify_token(Req);
+do_mac_authorization(Service, Req = #request{authorization = undefined}) ->
+	oauth2ems_mac:verify_token(Req);
+do_mac_authorization(Service, Req = #request{authorization = Authorization}) ->	
+	oauth2ems_mac:verify_token(Req).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
 
 	%PrivateKey = ems_util:open_file(?SSL_PATH ++  "/" ++ binary_to_list(<<"private_key.pem">>)),

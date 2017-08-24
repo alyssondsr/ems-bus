@@ -7,19 +7,23 @@
 -export([serve_oauth_access_token/1]).
 -export([verify_token/1]).
 -export([oauth_ro_authz/1]).
--export([issue_token/3]).
 
 -import(proplists, [get_value/2]).
 
--define(ACCESS_TOKEN_TABLE, access_tokens1).
+%%%===================================================================
+%%% Macros
+%%%===================================================================
+-define(ACCESS_TOKEN_TABLE, oauth1_tokens).
 -define(TMP_TOKEN_TABLE, tmp_tokens).
 -define(TOKEN_TABLE, cli_tokens).
 -define(NONCE_TABLE, nonces).
+-define(TOKEN,   (oauth2_config:token_generation())).
 
 -define(TABLES, 	[?ACCESS_TOKEN_TABLE,
 					?TOKEN_TABLE,
 					?NONCE_TABLE,
 					?TMP_TOKEN_TABLE]).
+
 
 start() ->
     lists:foreach(fun(Table) ->
@@ -38,7 +42,7 @@ serve_oauth_request_token(Request = #request{type = Type}) ->
 			RequestToken  = oauth2_token:generate(<<>>),
 			RequestSecret  = oauth2_token:generate(<<>>),
 			Callback = ems_request:get_querystring(<<"oauth_callback">>, [],Request),
-			issue_token(RequestToken,RequestSecret,Consumer,Callback),
+			associate_access_token(RequestToken,RequestSecret,Consumer,Callback),
 			ok(Request, <<"oauth_token=",RequestToken/binary,"&oauth_token_secret=",RequestSecret/binary>>);
 		false ->
 			bad(Request, "invalid signature value.")
@@ -74,7 +78,7 @@ serve_oauth_access_token(Request) ->
 					true ->
 						Token  = oauth2_token:generate(<<>>),
 						Secret  = oauth2_token:generate(<<>>),
-						issue_token(Token,Secret,Consumer),
+						associate_access_token(Token,Secret,Consumer),
 						ok(Request,  <<"oauth_token=",Token/binary,"&oauth_token_secret=",Secret/binary>>);
 					false ->
 						bad(Request, "invalid signature value.")
@@ -87,7 +91,7 @@ verify_token(Request) ->
     serve_oauth(Request, fun(URL, Params, Consumer, Signature) ->
 	    Token = ems_request:get_querystring(<<"oauth_token">>, [],Request),
 	    Nonce = ems_request:get_querystring(<<"oauth_nonce">>, [],Request),
-		io:format("\n Token = ~s e Nonce = ~s \n",[Token,Nonce]),
+		%io:format("\n Token = ~s e Nonce = ~s \n",[Token,Nonce]),
 	    case resolve_token(?ACCESS_TOKEN_TABLE,Token) of
 			{ok,{_,GrantCtx}} ->
 				OauthNonce = get_(GrantCtx,<<"oauth_nonce">>),
@@ -124,14 +128,13 @@ serve_oauth(Request = #request{uri = URL}, Fun) ->
 %%% Funções internas
 %%%===================================================================
 
-issue_token(AccessToken, Secret, Consumer, Callback) ->
+associate_access_token(AccessToken, Secret, Consumer, Callback) ->
 	Context = build_context(Consumer, Secret, Callback, <<>>,<<>>),
     {put(?TMP_TOKEN_TABLE,AccessToken,Context)}.
 
-issue_token(AccessToken, Secret, Consumer) ->
+associate_access_token(AccessToken, Secret, Consumer) ->
 	Context = build_context(Consumer, Secret,<<>>,<<>>,<<>>),
     {put(?ACCESS_TOKEN_TABLE,AccessToken,Context)}.
-    
 
 associate_verifier(RequestToken, Verifier, GrantCtx) ->
 	Consumer = get_(GrantCtx,<<"consumer">>),
@@ -160,9 +163,9 @@ resolve_token(Table,AccessToken) ->
 
 %consumer_lookup(<<"key">>, <<"PLAINTEXT">>) ->
 %  {"key", "secret", plaintext};
-consumer_lookup(ClientId, Method) ->
+consumer_lookup(ClientId, _Method) ->
     case ems_client:find_by_codigo(ClientId) of
-			{ok, Client} ->	  {ClientId, "secret", hmac_sha1};
+			{ok, _Client} ->	  {ClientId, "secret", hmac_sha1};
 			_ -> {error, unauthorized_client}		
     end.
 %consumer_lookup("key", "RSA-SHA1") ->
@@ -189,15 +192,13 @@ redirect(Request, RedirectUri, Path) ->
 		}
 	}.
   
-build_context(Consumer, RequestSecret, Callback, Verifier,Nonce) ->
+build_context(Consumer, RequestSecret, Callback, Verifier, Nonce) ->
     [ {<<"consumer">>,  Consumer}
     , {<<"oauth_verifier">>,  Verifier}
     , {<<"oauth_callback">>,  Callback}
     , {<<"oauth_token_secret">>, RequestSecret}
     , {<<"oauth_nonce">>, Nonce}].
 
-build_context(Nonce) ->
-    [ {<<"nonce">>,  Nonce}].
 
 get(Table, Key) ->
     case ets:lookup(Table, Key) of
@@ -213,7 +214,7 @@ get(O, K, _)  ->
     end.
 
 get_(O, K) ->
-    {ok, V} = get(O, K, []),
+    {ok, V} = get(O, K, <<>>),
     V.
 
 
@@ -222,7 +223,3 @@ put(Table, Key, Value) ->
     ok.
 update(Table, Key, Value) ->
 	ets:update_element(Table,Key,{2,Value}).
-	
-del(Table, Key) ->
-    ets:delete(Table, Key).
-

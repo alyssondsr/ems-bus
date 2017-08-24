@@ -61,7 +61,6 @@ acessa_servico(Token) ->
 
 request(Authorization,Data)->
 	Response = httpc:request(post,{?ACCESS_TOKEN_URL, [{"Authorization", Authorization}], "application/x-www-form-urlencoded",Data}, [], []),		
-	%io:format("\n\n\n Response ~s \n\n\n",[Response]),
 	format(Response).
 
 format({ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}})->

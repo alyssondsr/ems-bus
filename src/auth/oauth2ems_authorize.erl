@@ -47,10 +47,10 @@ code_request(Request = #request{authorization = Authorization}) ->
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
 					LocationPath = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
-					redirect1(Request, LocationPath);
+					redirect(Request, LocationPath);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					redirect1(Request, LocationPath)
+					redirect(Request, LocationPath)
 				end;
 			
 		_ ->
@@ -61,10 +61,10 @@ code_request(Request = #request{authorization = Authorization}) ->
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
 					Location = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
-					redirect1(Request, Location);
+					redirect(Request, Location);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					redirect1(Request, LocationPath)
+					redirect(Request, LocationPath)
 				end
 		end.
 implicit_token_request(Request = #request{authorization = Authorization}) ->
@@ -175,9 +175,8 @@ access_token_request(Request = #request{authorization = Authorization},TypeAuth)
 							ClientId2 = list_to_binary(Login),
 							Secret = list_to_binary(Password),
 							Auth = oauth2:authorize_code_grant({ClientId2, Secret}, Code, RedirectUri, []),
-							%io:format("\n\n\n -s \n\n\n",[Auth]),
 							case TypeAuth of
-								<<"mac">> -> issue_mac_token(ClientId2,Secret);
+								<<"mac">> -> issue_mac_token(Auth);
 								<<"authorization_code">> -> issue_token_and_refresh(Auth)
 							end;						
 						_Error -> {error, invalid_client}
@@ -187,7 +186,7 @@ access_token_request(Request = #request{authorization = Authorization},TypeAuth)
 		false -> 
 		Authz = oauth2:authorize_code_grant({ClientId, ClientSecret}, Code, RedirectUri, []),
 		case TypeAuth of
-			<<"mac">> -> issue_mac_token(ClientId,ClientSecret);
+			<<"mac">> -> issue_mac_token(Authz);
 			<<"authorization_code">> -> issue_token_and_refresh(Authz)
 		end					
 	end.  
@@ -212,14 +211,13 @@ issue_code({ok, {_, Auth}}) ->
 issue_code(Error) ->
     Error.
     
-issue_mac_token(ClientID,Secret) ->
-	Consumer = {ClientID,Secret,<<"HMAC-SHA1">>},
-	Token  = oauth2_token:generate(<<>>),
-	TokenSecret  = oauth2_token:generate(<<>>),
-	ems_oauth1:issue_token(Token,TokenSecret,Consumer),
-	{ok,<<"oauth_token=",Token/binary,"&oauth_token_secret=",TokenSecret/binary>>}.
-%issue_mac_token(Error) ->
-%    Error.
+issue_mac_token({ok, {_, Auth}}) ->
+	{ok, {_Token, Response}} = oauth2ems_mac:issue_token(Auth),
+	%io:format("\n\n\nCtx1: ~p\n\n\n",[Response]),
+	%io:format("\n\n\noauth2_response:to_proplist(Response): ~p\n\n\n",[oauth2_response:to_proplist(Response)]),
+	{ok, Response};
+issue_mac_token(Error) ->
+    Error.
 
 ok(Request, Body) when is_list(Body) ->
 	{ok, Request#request{code = 200, 
@@ -238,16 +236,6 @@ bad(Request, Reason) ->
 		response_data = ResponseData}
 	}.
 redirect(Request, LocationPath) ->
-	{ok, Request#request{code = 302, 
-		 response_data = <<"{}">>,
-		 response_header = #{
-					<<"location">> => LocationPath
-					}
-		}
-	}.
-
-redirect1(Request, LocationPath) ->
-	% mudar code para 302
 	{ok, Request#request{code = 302, 
 		 response_data = <<"{}">>,
 		 response_header = #{

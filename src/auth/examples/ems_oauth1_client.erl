@@ -7,10 +7,10 @@
 -define(CONSUMER_KEY, <<"key">>).
 -define(CONSUMER_SECRET, <<"secret">>).
 -define(OAUTH_SIGNATURE_METHOD, <<"HMAC-SHA1">>).
--define(ACCESS_TOKEN_TMP, "https://164.41.120.34:2302/oauth/request_temp_credentials").
--define(ACCESS_TOKEN_URL, "https://164.41.120.34:2302/oauth/access_token").
--define(SERVICO, "https://164.41.120.34:2302/netadm/info").
--define(AUTHZ_PAGE, <<"https://164.41.120.34:2302/login/index.html">>).
+-define(ACCESS_TOKEN_TMP, "https://127.0.0.1:2344/oauth/request_temp_credentials").
+-define(ACCESS_TOKEN_URL, "https://127.0.0.1:2344/oauth/access_token").
+-define(SERVICO, "https://127.0.0.1:2344/netadm/info").
+-define(AUTHZ_PAGE, <<"https://127.0.0.1:2344/login/index.html">>).
 
 -define(TOKEN_TABLE, cli_tokens).
 

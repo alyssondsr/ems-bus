@@ -110,39 +110,7 @@
 		"result_cache" : 0,
 		"async": "false",
 		"type": "GET",
-		"authorization":"public",
-				"querystring": [
-			{
-				"name": "oauth_version",
-				"type": "string",
-				"comment": "Oauth Version"
-			},
-			{
-				"name": "oauth_token",
-				"type": "string",
-				"comment": "Access Token"
-			},
-			{
-				"name": "oauth_consumer_key",
-				"type": "string",
-				"comment": "Oauth Version"
-			},
-			{
-				"name": "oauth_signature_method",
-				"type": "string",
-				"comment": "Oauth Version"
-			},
-			{
-				"name": "oauth_nonce",
-				"type": "string",
-				"comment": "Access Token"
-			},
-			{
-				"name": "oauth_signature",
-				"type": "string",
-				"comment": "Oauth Version"
-			}
-		],
+		"authorization":"oauth2",
 		"lang" : "erlang"
 	}
 	

@@ -1,12 +1,12 @@
 [
 	{
-		"name" : "/oauth/request_temp_credentials",
+		"name" : "/oauth1/request_temp_credentials",
 		"comment": "Oauth 1.0a",
 		"owner": "oauth1",
 		"version": "1",
 		"service" : "ems_oauth1:serve_oauth_request_token",
-		"url": "/oauth/request_temp_credentials",
-		"type": "POST",
+		"url": "/oauth1/request_temp_credentials",
+		"type": "GET",
 		"result_cache" : 0,
 		"authorization" : "public",
 		"querystring": [
@@ -18,15 +18,20 @@
 			{
 				"name": "oauth_consumer_key",
 				"type": "string",
-				"comment": "Oauth Version"
-			},
-			{
-				"name": "oauth_callback",
-				"type": "string",
-				"comment": "URL Callback"
+				"comment": "Oauth Key"
 			},
 			{
 				"name": "oauth_signature_method",
+				"type": "string",
+				"comment": "Oauth Version"
+			},
+			{
+				"name": "oauth_nonce",
+				"type": "string",
+				"comment": "Oauth Version"
+			},
+			{
+				"name": "oauth_timestamp",
 				"type": "string",
 				"comment": "Oauth Version"
 			},
@@ -39,13 +44,13 @@
 		"lang" : "erlang"
 	},
 	{
-		"name" : "/oauth/request_token",
+		"name" : "/oauth1/request_token",
 		"comment": "Oauth 1.0a",
 		"owner": "oauth1",
 		"version": "1",
 		"service" : "ems_oauth1:oauth_ro_authz",
-		"url": "/oauth/request_token",
-		"type": "GET",
+		"url": "/oauth1/request_token",
+		"type": "POST",
 		"result_cache" : 0,
 		"authorization" : "public",
 		"querystring": [
@@ -58,12 +63,12 @@
 		"lang" : "erlang"
 	},
 	{
-		"name" : "/oauth/access_token",
+		"name" : "/oauth1/access_token",
 		"comment": "Oauth 1.0a",
 		"owner": "oauth1",
 		"version": "1",
 		"service" : "ems_oauth1:serve_oauth_access_token",
-		"url": "/oauth/access_token",
+		"url": "/oauth1/access_token",
 		"type": "POST",
 		"result_cache" : 0,
 		"authorization" : "public",

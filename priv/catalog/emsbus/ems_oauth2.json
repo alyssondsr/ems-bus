@@ -221,23 +221,5 @@
 			}
 		],
 		"lang" : "erlang"
-	},
-	{
-		"name" : "/recurso",
-		"comment": "Simulção de recurso",
-		"owner": "oauth2ems",
-		"version": "1",
-		"service" : "oauth2ems_recurso:execute",
-		"url": "/recurso",
-		"type": "POST",
-		"querystring": [
-			{
-				"name": "token",
-				"type": "string",
-				"comment": "Token de acesso"
-			}
-		],
-		"lang" : "erlang"
 	}
-
 ]
