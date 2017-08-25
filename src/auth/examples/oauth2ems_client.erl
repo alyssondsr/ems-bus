@@ -11,7 +11,7 @@
 %-define(SCOPE, <<>>).
 
 -define(REDIRECT_URI, <<"http://127.0.0.1:2301/callback">>).
--define(CLIENTID, <<"q1w2">>).
+-define(CLIENTID, <<"123">>).
 -define(SECRET, <<"123456">>).
 -define(ACCESS_TOKEN_URL, "http://127.0.0.1:2301/authorize").
 -define(SERVICO, <<"http://127.0.0.1:2301/netadm/info">>).
@@ -26,7 +26,7 @@
 
 
 %-define(CLIENTID, <<"v3m7smtarlsk668">>).
-%-define(SECRET, <<"	ljumioeejyn3p4a">>).
+%-define(SECRET, <<"ljumioeejyn3p4a">>).
 %-define(ACCESS_TOKEN_URL, "https://api.dropboxapi.com/oauth2/token").
 %-define(SERVICO, <<"https://api.dropboxapi.com/2/users/get_current_account">>).
 %-define(SCOPE, <<>>).
@@ -54,9 +54,10 @@ end.
 
 acessa_servico(Token) ->
 	URLbin =  <<?SERVICO/binary, "?access_token=", Token/binary>>,
-	URL = binary:bin_to_list(URLbin),			
+	URL = binary:bin_to_list(URLbin),		
 	{ok, {{_Version, _Status, _ReasonPhrase}, _Headers, Net}} = 
 		httpc:request(get,{URL, []}, [], []),
+		io:format("\n\n\n Net ~p \n\n\n",[Net]),
 	Net.	
 
 request(Authorization,Data)->

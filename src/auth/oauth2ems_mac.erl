@@ -69,9 +69,7 @@ verify_token(Request) ->
 				true -> 	{"error: invalid nonce."};
 				false -> 	
 					associate_nonce(Token, Nonce, GrantCtx),
-					%io:format("\n\n\n GrantCtx ~p \n\n\n",[GrantCtx]),
 					{ok,RequestSecret} = get_(GrantCtx,<<"token_secret">>),
-					io:format("\n\n\n RequestSecret ~p \n\n\n",[RequestSecret]),
 					case oauth:verify(binary:bin_to_list(Signature), "POST", URL, maps:to_list(Params), Consumer, binary:bin_to_list(RequestSecret)) of
 						true -> ok;
 						false ->{"error: invalid signature value."}

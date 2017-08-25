@@ -91,7 +91,6 @@ verify_token(Request) ->
     serve_oauth(Request, fun(URL, Params, Consumer, Signature) ->
 	    Token = ems_request:get_querystring(<<"oauth_token">>, [],Request),
 	    Nonce = ems_request:get_querystring(<<"oauth_nonce">>, [],Request),
-		%io:format("\n Token = ~s e Nonce = ~s \n",[Token,Nonce]),
 	    case resolve_token(?ACCESS_TOKEN_TABLE,Token) of
 			{ok,{_,GrantCtx}} ->
 				OauthNonce = get_(GrantCtx,<<"oauth_nonce">>),

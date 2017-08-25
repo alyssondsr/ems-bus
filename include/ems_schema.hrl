@@ -13,13 +13,13 @@
      			  index :: non_neg_integer()}).
 
 -record(user, {id :: non_neg_integer(), 					%% identifica o registro
-			   codigo :: integer(),							%% identifica uma pessoa (pode haver duplicado pois a pessoa pode ter vários e-mails e login)
+			   user_id :: integer(),							%% identifica uma pessoa (pode haver duplicado pois a pessoa pode ter vários e-mails e login)
 			   login :: binary(),
 			   name :: binary(), 
 			   cpf :: binary(),
 			   email :: binary(), 
 			   password :: binary(),
-			   type :: non_neg_integer(),					%% 0 = pessoa física  1 = pessoa jurídica  2 = aluno  com AluRa   2 = aluno com AluMatricula
+			   type :: non_neg_integer(),					%% 0 = pessoa física  1 = pessoa jurídica  2 = aluno
 			   passwd_crypto :: binary(),					%% Algoritmo criptografia: SHA1
 			   type_email :: non_neg_integer(),				%% 1 = Institucional  2 = Pessoal
 			   active :: boolean(),
@@ -49,26 +49,21 @@
 		}).
 		
 -record(user_permission, {id :: non_neg_integer(),				%% identifica o registro da permissão
-						  hash,
-						  grant_get,
-						  grant_post,
-						  grant_put,
-						  grant_delete,
+						  hash :: non_neg_integer(),
+						  hash2 :: non_neg_integer(),
+						  name :: binary(),
+						  url :: binary(),
+						  grant_get :: boolean(),
+						  grant_post :: boolean(),
+						  grant_put :: boolean(),
+						  grant_delete :: boolean(),
+						  user_id :: integer(),
+						  sis_id :: integer(),
+						  perfil_id :: integer(),
 						  ctrl_insert,
 						  ctrl_update
           }).
           
--record(user_control_access, {id :: non_neg_integer(),				%% identifica o registro de acesso a página
-							  codigo :: integer(),
-							  name :: string(),
-							  uri :: string(),
-							  user_id :: integer(),
-							  sis_id :: integer(),
-							  visualize :: binary(),
-							  ctrl_insert,
-							  ctrl_update
-}).
-
 
 -record(client, {id :: non_neg_integer(), 					%% identifica o client internamente
 				 codigo :: binary(),						%% identifica o client externamente

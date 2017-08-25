@@ -16,10 +16,8 @@
 authenticate(Service = #service{authorization = AuthorizationMode}, Request) ->
 	case AuthorizationMode of
 		http_basic -> do_basic_authorization(Service, Request);
-		oauth2 ->
-			%io:format("\n\n\n\n do_mac_authorization: ~p \n\n\n\n",[do_mac_authorization(Service, Request)]),
-			{do_mac_authorization(Service, Request),<<>>,<<>>};
-		oauth1 -> 	do_mac_authorization(Service, Request);
+		oauth2 ->	do_bearer_authorization(Service, Request);	
+		oauth1 -> 	{do_mac_authorization(Service, Request),<<>>,<<>>};
 		_ -> {ok, public, <<>>}
 	end.
 
@@ -38,11 +36,11 @@ do_basic_authorization(Service, Req = #request{authorization = Authorization}) -
 			case ems_user:find_by_login_and_password(list_to_binary(Login), list_to_binary(Password)) of
 				{ok, User} -> do_check_grant_permission(Service, Req, User, <<>>);
 				{error, Reason} = Error -> 
-					ems_logger:warn("ems_auth_user does not grant access to user ~p with HTTP Basic protocol. Reason: ~p.", [Login, Reason]),
+					ems_logger:warn("ems_auth_user do_basic_authorization error. Login: ~p  Reason: ~p.", [Login, Reason]),
 					Error
 			end;
 		{error, Reason} = Error2 -> 
-			ems_logger:warn("ems_auth_user does not grant access to user ~p with HTTP Basic protocol. Reason: ~p.", [Reason]),
+			ems_logger:warn("ems_auth_user do_basic_authorization error. Reason: ~p.", [Reason]),
 			Error2
 	end.
 
@@ -54,9 +52,10 @@ do_bearer_authorization(Service, Req = #request{authorization = undefined}) ->
 do_bearer_authorization(Service, Req = #request{authorization = Authorization}) ->	
 	case ems_http_util:parse_bearer_authorization_header(Authorization) of
 		{ok, AccessToken} ->  do_oauth2_check_access_token(AccessToken, Service, Req);
-		Error -> Error
+		{error, Reason} = Error -> 
+			ems_logger:warn("ems_auth_user bearer_authorization error. Reason: ~p.", [Reason]),
+			Error
 	end.
-
 
 %%%%%%%%%%%%% MAC Token %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_mac_authorization(_, Req = #request{authorization = <<>>}) -> 	ems_oauth1:verify_token(Req);
@@ -78,7 +77,7 @@ do_oauth2_check_access_token(AccessToken, Service, Req) ->
 		{ok, {[], [{<<"client">>, User}|_]}} -> 
 			do_check_grant_permission(Service, Req, User, AccessToken);
 		{error, Reason} = Error -> 
-			ems_logger:warn("ems_auth_user does not grant access with invalid OAuth2 access token. Reason: ~p.", [Reason]),
+			ems_logger:warn("ems_auth_user check_access_token error. Reason: ~p.", [Reason]),
 			Error
 	end.
 	
@@ -88,7 +87,7 @@ do_check_grant_permission(Service, Req, User, AccessToken) ->
 	case ems_user_permission:has_grant_permission(Service, Req, User) of
 		true -> {ok, User, AccessToken};
 		false -> 
-			ems_logger:warn("ems_auth_user does not grant access to user ~p. Reason: permission denied."),
+			ems_logger:warn("ems_auth_user check_grant_permission error. User: ~p. Reason: access_denied."),
 			{error, access_denied}
 	end.
 

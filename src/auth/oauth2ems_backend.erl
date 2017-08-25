@@ -53,11 +53,11 @@ start() ->
     application:set_env(oauth2, backend, oauth2ems_backend),
     ems_user:insert(#user{login= <<"geral">>,password= ems_util:criptografia_sha1("123456")}),
     ems_user:insert(#user{login= <<"alyssondsr">>,password=ems_util:criptografia_sha1("123456")}),
-    ems_client:insert(#client{codigo= <<"q1w2">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"http://127.0.0.1:2301/callback">>, scope= <<"email">>}),
+    ems_client:insert(#client{codigo= <<"123">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"http://127.0.0.1:2301/callback">>, scope= <<"email">>}),
     ems_client:insert(#client{codigo= <<"q1w2e3">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.43:2344/callback">>, scope= <<"email">>}),
     ems_client:insert(#client{codigo= <<"key">>,secret=ems_util:criptografia_sha1("secret"), redirect_uri= <<"https://127.0.0.1:2344/callback1">>, scope= <<"email">>}),
     ems_client:insert(#client{codigo= <<"teste">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.34:2344/callback">>, scope= <<"email">>}),
-    ems_client:insert(#client{codigo= <<"man">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://www.getpostman.com/oauth2/callback">>, scope= <<"email">>}),
+    ems_client:insert(#client{codigo= <<"98755">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://www.getpostman.com/oauth2/callback">>, scope= <<"email">>}),
     lists:foreach(fun(Table) ->
 			ets:new(Table, [named_table, public])
 		end,
@@ -73,12 +73,26 @@ stop() ->
 %%%===================================================================
 
 authenticate_user({Login, Password}, _) ->
+%<<<<<<< HEAD
     case ems_user:authenticate_login_password(Login, Password) of
 		ok ->	{ok, {<<>>,Login}};
+%=======
+%    case ems_user:find_by_login_and_password(Login, Password) of
+%		{ok, #user{id = Id, user_id = UserId, matricula = Matricula, name = Name, email = Email, type = Type, lotacao = Lotacao}} ->	
+%			ResourceOwner = [{<<"id">>, Id,
+%							  <<"login">>, Login, 
+%							  <<"user_id">>, UserId,
+%							  <<"name">>, Name,
+%							  <<"matricula">>, Matricula,
+%							  <<"email">>, Email,
+%							  <<"type">>, Type,
+%							  <<"lotacao">>, Lotacao}],
+%			{ok, {<<>>, ResourceOwner}};
+%>>>>>>> upstream/master
 		_ -> {error, unauthorized_user}
 	end.
 authenticate_client({ClientId, Secret},_) ->
-    case ems_client:find_by_codigo_and_secret(ClientId,Secret) of
+    case ems_client:find_by_codigo_and_secret(ClientId, Secret) of
 			{ok, Client} ->	{ok, {<<>>,Client}};
 			_ -> {error, unauthorized_client}		
     end.
