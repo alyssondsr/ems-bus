@@ -3,6 +3,7 @@
 -export([execute/1]).
 -export([code_request/1]).
 -export([implicit_token_request/1]).
+-export([authn_user/1]).
 
 -include("include/ems_config.hrl").
 -include("include/ems_schema.hrl").
@@ -14,7 +15,7 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 		"GET" ->  ems_request:get_querystring(<<"response_type">>, <<>>, Request);
 		"POST" -> ems_request:get_querystring(<<"grant_type">>, <<>>, Request)
 	end,
-    Result = case TypeAuth of
+	Result = case TypeAuth of
 		<<"password">> -> password_grant(Request);
 		<<"client_credentials">> ->	client_credentials_grant(Request);
 		<<"token">> -> authorization_request(Request);
@@ -36,13 +37,12 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 %% Requisita o código de autorização - seções 4.1.1 e 4.1.2 do RFC 6749.
 %% URL de teste: GET http://127.0.0.1:2301/authorize?response_type=code2&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html&username=johndoe&password=A3ddj3w
 code_request(Request = #request{authorization = Authorization}) ->
-    ClientId    = ems_request:get_querystring(<<"client_id">>, [],Request),
-    RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, [],Request),
-    State      = ems_request:get_querystring(<<"state">>, [],Request),
-    Scope       = ems_request:get_querystring(<<"scope">>, [],Request),
+	ClientId    = ems_request:get_querystring(<<"client_id">>, [],Request),
+	RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, [],Request),
+	State      = ems_request:get_querystring(<<"state">>, [],Request),
+	Scope       = ems_request:get_querystring(<<"scope">>, [],Request),
 	Username = ems_request:get_querystring(<<"username">>, <<>>, Request),
 	Password = ems_request:get_querystring(<<"password">>, <<>>, Request),
-   	io:format("\n\n\n ~p \n\n\n",[credential_extract({Username,Password},Authorization)]),
     case credential_extract({Username,Password},Authorization) of
 		{User,Passwd} -> 
 	    Authz = oauth2:authorize_code_request({User,Passwd}, ClientId, RedirectUri, Scope, []),
@@ -58,6 +58,18 @@ code_request(Request = #request{authorization = Authorization}) ->
 			
 		Error -> Error
 		end.
+
+authn_user(Request = #request{authorization = Authorization}) ->
+	case ems_http_util:parse_basic_authorization_header(Authorization) of
+		{ok, Login, Password} ->
+			case ems_user:authenticate_login_password(list_to_binary(Login), list_to_binary(Password)) of
+					ok ->	ok(Request, <<"{}">>);
+					_ -> {error, unauthorized_user}
+			end;
+		Error -> Error
+	end.	
+
+
 implicit_token_request(Request = #request{authorization = Authorization}) ->
     ClientId    = ems_request:get_querystring(<<"client_id">>, [],Request),
     RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, [],Request),
@@ -97,7 +109,7 @@ client_credentials_grant(Request = #request{authorization = Authorization}) ->
 	Scope = ems_request:get_querystring(<<"scope">>, <<>>, Request),
 	Secret = ems_request:get_querystring(<<"client_secret">>, <<>>, Request),
 	% O ClientId também pode ser passado via header Authorization
-    case credential_extract({ClientId,Secret},Authorization) of
+	case credential_extract({ClientId,Secret},Authorization) of
 		{Id,ClientSecret} -> 
 			Auth = oauth2:authorize_client_credentials({Id,ClientSecret}, Scope, []),
 			issue_token(Auth);
@@ -116,10 +128,9 @@ password_grant(Request = #request{authorization = Authorization}) ->
 			issue_token(Authz);
 		Error -> Error
 	end.	
+	
 %% Verifica a URI do Cliente e redireciona para a página de autorização - Implicit Grant e Authorization Code Grant
-%% URL de teste: GET http://127.0.0.1:2301/authorize?response_type=code&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html
-
-    
+%% URL de teste: GET http://127.0.0.1:2301/authorize?response_type=code&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html   
 authorization_request(Request = #request{authorization = _Authorization}) ->
     ClientId    = ems_request:get_querystring(<<"client_id">>, <<>>, Request),
     RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, <<>>, Request),
@@ -131,8 +142,6 @@ authorization_request(Request = #request{authorization = _Authorization}) ->
 
 %% Requisita o código de autorização - seções 4.1.1 e 4.1.2 do RFC 6749.
 %% URL de teste: GET http://127.0.0.1:2301/authorize?response_type=code2&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html&username=johndoe&password=A3ddj3w
-
-
 refresh_token_request(Request) ->
     ClientId    = ems_request:get_querystring(<<"client_id">>, [],Request),
     ClientSecret = ems_request:get_querystring(<<"client_secret">>, [],Request),

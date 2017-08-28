@@ -145,21 +145,27 @@ Login.LoginSistemas = (function() {
 	}
 	
 	function LoginSistemas() {
-		this.form = $('#sign_in');
-		this.botaoLogin = $('#enter');
+		this.botaoNega = $('#neg');
+		this.botaoAuthz = $('#enter');
 		this.username = $('#username');
 		this.pass = $('#pass');
 		this.error = $("#error");
 	}
 	
 	LoginSistemas.prototype.iniciar = function() {
-		this.botaoLogin.on('click', onSubmitLogin.bind(this));
-		this.form.on('submit', onSubmitLogin.bind(this));
+		this.botaoAuthz.on('click', onAuthz.bind(this));
+		this.botaoNega.on('click', onNega.bind(this));
 		this.username.on('focus', onRemoveDiv.bind(this));
 		this.pass.on('focus', onRemoveDiv.bind(this));
 	}
-	
-	function onSubmitLogin(e) {
+	function onNega(e) {
+		alert("nega: ");
+		window.location.href="https://unb.br";
+	}
+
+	function onAuthz(e) {
+		alert("data.redirect: ");
+		window.location.href="https://www.globo.com";
 		if($('#username').val() == "" || $('#pass').val() == ""){
 			onRemoveDiv();
 			this.error.append('<div id="validate" class="alert alert-danger" role="alert">O login e a senha devem ser preenchidos.</div>');
@@ -172,18 +178,9 @@ Login.LoginSistemas = (function() {
 		
 		var protocol=window.location.protocol;
 		
-		/*var port = ":";
-		
-		if(document.referrer!= undefined && document.referrer != ""){
-			
-			var hostName =document.referrer.split('/')[2];
-			
-			port += hostName.split(':')[1];
-		}*/
-		
 		var baseUrl = protocol + '//' + window.location.hostname +':' + window.location.port; 
 		
-		var url = baseUrl + '/authn?'+
+		var url = baseUrl + '/code_request?'+
 				 'client_id='+getRedirectUri()['client_id']+
 				 '&state='+getRedirectUri()['state']+
 				 '&redirect_uri='+getRedirectUri()['redirect_uri'];
@@ -212,14 +209,9 @@ Login.LoginSistemas = (function() {
 					if (document.referrer != undefined && document.referrer != ""){
 						urlBase=document.referrer;
 						urlBase=urlBase.split('/');
-						url=urlBase[0]+'//'+urlBase[2]+''+data.getResponseHeader("Location");
-												alert("url1: "+ url);
-
+						url=urlBase[0]+'//'+urlBase[2]+''+'https://127.0.0.1:2344/authn');
 					}else{
-						url = baseUrl + '/login/authz.html?'+
-							'client_id='+getRedirectUri()['client_id']+
-							'&state='+getRedirectUri()['state']+
-							'&redirect_uri='+getRedirectUri()['redirect_uri'];	
+						url=data.getResponseHeader("Location");
 					}
 					window.location.href=url;
 				}

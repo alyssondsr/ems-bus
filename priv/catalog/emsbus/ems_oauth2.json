@@ -218,24 +218,29 @@
 		"lang" : "erlang"
 	},
 	{
-		"name": "redirect_url_login",
-		"comment": "Redirect url /authz to /authz/index.html",
-		"owner": "seguranca",
-		"version": "1.0.0",
-		"service" : "ems_redirect_url_service:execute",
-		"url": "/authz",
-		"redirect_url" : "/authz/index.html",
-		"path" : "{{priv/www/authz}}",
+		"name" : "/authn",
+		"comment": "Autenticação de dono do recurso",
+		"owner": "oauth2ems",
+		"version": "1",
+		"service" : "oauth2ems_authorize:authn_user",
+		"url": "/authn",
 		"type": "GET",
+		"lang" : "erlang"
+	},
+	{
+		"name": "/authz",
+		"comment": "Pagina de login ErlangMS",
+		"owner": "auth",
+		"version": "1.0.0",
+		"service" : "ems_static_file_service:execute",
+		"url": "/login/authz.html",
+		"use_re" : true,
+		"path" : "{{ authz_path }}",
+		"type": "GET",
+		"authorization" : "public",
 		"cache_control" : "no-cache",
 		"expires_minute" : 0,
-		"querystring": [
-			{
-				"name": "error",
-				"type": "string",
-				"comment": "Descrição do erro"
-			}
-		],
 		"lang" : "erlang"
 	}
+
 ]
