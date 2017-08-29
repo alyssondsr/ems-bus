@@ -145,78 +145,26 @@ Login.LoginSistemas = (function() {
 	}
 	
 	function LoginSistemas() {
+		this.form = $('#sign_in');
+		this.botaoLogin = $('#enter1');
 		this.botaoNega = $('#neg');
-		this.botaoAuthz = $('#enter');
 		this.username = $('#username');
 		this.pass = $('#pass');
 		this.error = $("#error");
 	}
 	
 	LoginSistemas.prototype.iniciar = function() {
-		this.botaoAuthz.on('click', onAuthz.bind(this));
+		this.botaoLogin.on('click', onAuthz.bind(this));
 		this.botaoNega.on('click', onNega.bind(this));
-		this.username.on('focus', onRemoveDiv.bind(this));
-		this.pass.on('focus', onRemoveDiv.bind(this));
 	}
 	function onNega(e) {
-		alert("nega: ");
-		window.location.href="https://unb.br";
+		alert("all");
+		window.location.href='https://127.0.0.1:2344/code_request';
 	}
-
+	
 	function onAuthz(e) {
-		alert("data.redirect: ");
-		window.location.href="https://www.globo.com";
-		if($('#username').val() == "" || $('#pass').val() == ""){
-			onRemoveDiv();
-			this.error.append('<div id="validate" class="alert alert-danger" role="alert">O login e a senha devem ser preenchidos.</div>');
-			return;
-		}
-
-		e.preventDefault();
-
-		var urlBase = '';
-		
-		var protocol=window.location.protocol;
-		
-		var baseUrl = protocol + '//' + window.location.hostname +':' + window.location.port; 
-		
-		var url = baseUrl + '/code_request?'+
-				 'client_id='+getRedirectUri()['client_id']+
-				 '&state='+getRedirectUri()['state']+
-				 '&redirect_uri='+getRedirectUri()['redirect_uri'];
-		$.ajax({
-			url: url,
-			crossDomain: true,
-			contentType: 'application/json',
-			beforeSend: function (xhr) {
-				xhr.setRequestHeader ("Authorization", "Basic " + btoa($('#username').val() + ":" + sha1($('#pass').val())));
-			},
-
-			headers: {
-				  'name-api-key':'ewf45r4435trge',
-				  'Content-Type':'application/x-www-form-urlencoded'
-		    },			
-			error:  onErroSalvandoEstilo.bind(this),
-			success: function(data, textStatus, headers){
-				if (data.redirect) {
-					alert("data.redirect: "+ data.redirect);
-					// data.redirect contains the string URL to redirect to
-					window.location.href = data.redirect;
-				}
-			},
-			complete: function(data, textStatus) {
-				if(textStatus == 'success'){
-					if (document.referrer != undefined && document.referrer != ""){
-						urlBase=document.referrer;
-						urlBase=urlBase.split('/');
-						url=urlBase[0]+'//'+urlBase[2]+''+'https://127.0.0.1:2344/authn');
-					}else{
-						url=data.getResponseHeader("Location");
-					}
-					window.location.href=url;
-				}
-			}
-		});
+		alert("dsdsd");
+		window.location.href='https://127.0.0.1:2344/code_request?client_id=123&state=undefined&redirect_uri=http://127.0.0.1:2301/callback&username=geral&password=123456';
 	}
 	
 	//erro na autenticação

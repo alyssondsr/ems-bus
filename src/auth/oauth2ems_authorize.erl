@@ -50,10 +50,10 @@ code_request(Request = #request{authorization = Authorization}) ->
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
 					LocationPath = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
-					redirect0(Request, LocationPath);
+					redirect(Request, LocationPath);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					redirect0(Request, LocationPath)
+					redirect(Request, LocationPath)
 				end;
 			
 		Error -> Error
@@ -233,12 +233,12 @@ redirect(Request, LocationPath) ->
 					}
 		}
 	}.
-redirect0(Request, LocationPath) ->
-	{ok, Request#request{code = 200, 
-		 response_data = <<"{}">>,
-		 response_header = #{
-					<<"location">> => LocationPath
-					}
-		}
-	}.
+%redirect(Request, LocationPath) ->
+%	{ok, Request#request{code = 200, 
+%		 response_data = <<"{}">>,
+%		 response_header = #{
+%					<<"location">> => LocationPath
+%					}
+%		}
+%	}.
 
