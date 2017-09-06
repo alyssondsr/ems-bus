@@ -163,8 +163,14 @@ Login.LoginSistemas = (function() {
 	}
 	
 	function onAuthz(e) {
-		alert("dsdsd");
-		window.location.href='https://127.0.0.1:2344/code_request?client_id=123&state=undefined&redirect_uri=http://127.0.0.1:2301/callback&username=geral&password=123456';
+		var baseUrl = 'https://127.0.0.1:2344/code_request'; 
+		alert(baseUrl);
+		url = 	baseUrl +
+				'?client_id='+getRedirectUri()['client_id']+
+				'&state='+getRedirectUri()['state']+
+				'&redirect_uri='+getRedirectUri()['redirect_uri'];
+		//authz = data.getResponseHeader("Authorization");
+		window.location.href=url;
 	}
 	
 	//erro na autenticação

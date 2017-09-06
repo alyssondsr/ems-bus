@@ -1,4 +1,5 @@
 var Login = Login || {};
+var user =  "";
 
 Login.LoginSistemas = (function() {
 	
@@ -147,18 +148,23 @@ Login.LoginSistemas = (function() {
 	function LoginSistemas() {
 		this.form = $('#sign_in');
 		this.botaoLogin = $('#enter');
+		this.botaoAuth = $('#enter1');
+		this.botaoNega = $('#neg');
 		this.username = $('#username');
 		this.pass = $('#pass');
 		this.error = $("#error");
 	}
 	
 	LoginSistemas.prototype.iniciar = function() {
+		this.botaoAuth.on('click', onAuthz.bind(this));
+		this.botaoNega.on('click', onNega.bind(this));
 		this.botaoLogin.on('click', onSubmitLogin.bind(this));
 		this.form.on('submit', onSubmitLogin.bind(this));
 		this.username.on('focus', onRemoveDiv.bind(this));
 		this.pass.on('focus', onRemoveDiv.bind(this));
 	}
 	
+
 	function onSubmitLogin(e) {
 		if($('#username').val() == "" || $('#pass').val() == ""){
 			onRemoveDiv();
@@ -187,14 +193,19 @@ Login.LoginSistemas = (function() {
 				 'client_id='+getRedirectUri()['client_id']+
 				 '&state='+getRedirectUri()['state']+
 				 '&redirect_uri='+getRedirectUri()['redirect_uri'];
+				 		alert(url);
+
 		$.ajax({
 			url: url,
 			crossDomain: true,
 			contentType: 'application/json',
 			beforeSend: function (xhr) {
+				user = btoa($('#username').val();
 				xhr.setRequestHeader ("Authorization", "Basic " + btoa($('#username').val() + ":" + sha1($('#pass').val())));
 			},
+							 		alert(url);
 
+			alert(btoa($('#username').val());
 			headers: {
 				  'name-api-key':'ewf45r4435trge',
 				  'Content-Type':'application/x-www-form-urlencoded'
@@ -202,7 +213,8 @@ Login.LoginSistemas = (function() {
 			error:  onErroSalvandoEstilo.bind(this),
 			success: function(data, textStatus, headers){
 				if (data.redirect) {
-					alert("data.redirect: "+ data.redirect);
+											alert("AQUI");
+
 					// data.redirect contains the string URL to redirect to
 					window.location.href = data.redirect;
 				}
@@ -220,13 +232,31 @@ Login.LoginSistemas = (function() {
 							'client_id='+getRedirectUri()['client_id']+
 							'&state='+getRedirectUri()['state']+
 							'&redirect_uri='+getRedirectUri()['redirect_uri'];	
+
 					}
+											alert(url);
+
 					window.location.href=url;
 				}
 			}
 		});
 	}
+	function onNega(e) {
+		alert("all");
+		window.location.href='https://127.0.0.1:2344/code_request';
+	}
 	
+	function onAuthz(e) {
+		var baseUrl = 'https://127.0.0.1:2344/code_request'; 
+		alert(baseUrl);
+		url = 	baseUrl +
+				'?client_id='+getRedirectUri()['client_id']+
+				'&state='+getRedirectUri()['state']+
+				'&redirect_uri='+getRedirectUri()['redirect_uri'];
+		//authz = data.getResponseHeader("Authorization");
+		window.location.href=url;
+	}
+
 	//erro na autenticação
 	function onErroSalvandoEstilo(obj) {
 		onRemoveDiv();
