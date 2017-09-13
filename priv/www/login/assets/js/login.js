@@ -193,19 +193,14 @@ Login.LoginSistemas = (function() {
 				 'client_id='+getRedirectUri()['client_id']+
 				 '&state='+getRedirectUri()['state']+
 				 '&redirect_uri='+getRedirectUri()['redirect_uri'];
-				 		alert(url);
 
 		$.ajax({
 			url: url,
 			crossDomain: true,
 			contentType: 'application/json',
 			beforeSend: function (xhr) {
-				user = btoa($('#username').val();
 				xhr.setRequestHeader ("Authorization", "Basic " + btoa($('#username').val() + ":" + sha1($('#pass').val())));
 			},
-							 		alert(url);
-
-			alert(btoa($('#username').val());
 			headers: {
 				  'name-api-key':'ewf45r4435trge',
 				  'Content-Type':'application/x-www-form-urlencoded'
