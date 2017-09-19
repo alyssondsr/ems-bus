@@ -13,7 +13,7 @@
      			  index :: non_neg_integer()}).
 
 -record(user, {id :: non_neg_integer(), 					%% identifica o registro
-			   user_id :: integer(),							%% identifica uma pessoa (pode haver duplicado pois a pessoa pode ter vários e-mails e login)
+			   codigo :: non_neg_integer(),					%% identifica uma pessoa (pode haver duplicado pois a pessoa pode ter vários e-mails e login)
 			   login :: binary(),
 			   name :: binary(), 
 			   cpf :: binary(),
@@ -48,7 +48,7 @@
 			   ctrl_update 
 		}).
 		
--record(user_permission, {id :: non_neg_integer(),				%% identifica o registro da permissão
+-record(user_permission, {id :: non_neg_integer(),	
 						  hash :: non_neg_integer(),
 						  hash2 :: non_neg_integer(),
 						  name :: binary(),
@@ -57,16 +57,26 @@
 						  grant_post :: boolean(),
 						  grant_put :: boolean(),
 						  grant_delete :: boolean(),
-						  user_id :: integer(),
-						  sis_id :: integer(),
-						  perfil_id :: integer(),
+						  user_id :: non_neg_integer(),
+						  sis_id :: non_neg_integer(),
+						  perfil_id :: non_neg_integer(),
 						  ctrl_insert,
 						  ctrl_update
           }).
+
+
+-record(user_perfil, {id :: non_neg_integer(), 					
+					  perfil_id :: non_neg_integer(),					
+					  user_id :: non_neg_integer(),					
+					  name :: binary(), 
+					  description :: binary(),
+					  ctrl_insert,
+					  ctrl_update 
+		}).
           
 
--record(client, {id :: non_neg_integer(), 					%% identifica o client internamente
-				 codigo :: binary(),						%% identifica o client externamente
+-record(client, {id :: non_neg_integer(), 					
+				 codigo :: non_neg_integer(),				
 				 name :: binary(), 
 			     description :: binary(),
 			     secret :: binary(),
@@ -76,6 +86,10 @@
 				 ctrl_insert,
 				 ctrl_update 
 		}).
+
+
+
+
 
 
 -record(ctrl_params, {name :: string(),
@@ -116,7 +130,8 @@
 					  worker :: pid(),							%% Processo worker http que vai atender a requisição
 					  status_send,								%% Registra que a mensagem foi entregue ou o erro ocorrido na entrega
 					  authorization :: binary(),				%% Dados da autenticação da requisição
-					  user = public :: #user{},					%% Usuário da requisição ou anonimo
+					  client :: #client{},
+					  user :: #user{},							%% Usuário da requisição ou public
 					  node_exec = undefined,					%% Node que foi enviado a solicitação
 					  status = latency,							%% status: latency, req_done, req_send
 					  worker_send,
@@ -131,7 +146,12 @@
 					  host :: binary(),							%% Ip do barramento
 					  filename :: string(),
 					  referer :: binary(),
-					  access_token :: binary()
+					  access_token :: binary(),
+					  scope :: binary(),
+					  oauth2_grant_type :: binary(),
+					  oauth2_access_token :: binary(),
+					  oauth2_refresh_token :: binary()
+					  
 				  }).
 
 
@@ -168,7 +188,7 @@
 					name :: string(), 							%% Nome do contrato do serviço (Por default usa-se a própria URL como name)
 					url :: string(),  							%% URL do contrato do serviço
 					type = <<"GET">> :: string(),				%% Verbo HTTP do contrato (GET, POST, PUT, DELETE e OPTIONS) ou KERNEL para módulos do barramento
-					service :: string(),						%% Serviço que será executado no contrato
+					service :: binary(),						%% Serviço que será executado no contrato
 					middleware,
 					module_name :: string(), 					%% Nome do módulo do serviço que vai atender a requisição. Ex.: br.erlangms.HelloWorldService  
 					module_name_canonical :: string(), 			%% Nome do módulo canonico do serviço que vai atender a requisição. Ex.: HelloWorldService  
@@ -181,17 +201,17 @@
 					version = "1.0.0" :: string(), 				%% Versão do contrato do serviço
 					owner :: string(),  						%% Quem é o proprietário pelo serviço
 					async = false :: boolean(),					%% Indica se o serviço será processado em segundo plano (chamada assíncrona)
-					querystring :: string(),  					%% Definição da querystring para o contrato do serviço
+					querystring :: list(map()),					%% Definição da querystring para o contrato do serviço
 					qtd_querystring_req :: non_neg_integer(), 	%% Indica quantas querystrings são obrigatórias
 					host :: atom(),  							%% Atom do host onde está o módulo do serviço que vai processar a requisição
 					host_name,				  					%% Nome do host onde está o módulo do serviço que vai processar a requisição
 					result_cache :: non_neg_integer(), 			%% Indica quanto tempo em milisegundos o resultado vai ficar armazenado em cache (somente para o módulo msbus_static_file_service)
-					authorization :: binary(),					%% Forma de autenticação (Por enquanto somente Basic)
+					authorization :: atom(),					%% Forma de autenticação (public, basic, oauth2)
 					page,										%% Page django file
 					page_module,								%% Page module django file compiled
 					page_mime_type = <<"text/html">>,			%% Page mime type
 					node,										%% Node ou lista de node onde os serviços estão publicados
-					lang = "erlang" :: string(),				%% Linguagem que foi utilizada para implementar o serviço
+					lang = "erlang" :: binary(),				%% Linguagem que foi utilizada para implementar o serviço
 					datasource,									%% Datasource para a fonte de dados
 					debug = false :: boolean(),					%% Permite habilitar um modo debug (depende da implementação do serviço)
 					schema_in :: non_neg_integer(),

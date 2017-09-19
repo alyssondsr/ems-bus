@@ -74,8 +74,9 @@ stop() ->
 
 authenticate_user({Login, Password}, _) ->
 %<<<<<<< HEAD
-    case ems_user:authenticate_login_password(Login, Password) of
-		ok ->	{ok, {<<>>,Login}};
+%<<<<<<< HEAD
+ %   case ems_user:authenticate_login_password(Login, Password) of
+%		ok ->	{ok, {<<>>,Login}};
 %=======
 %    case ems_user:find_by_login_and_password(Login, Password) of
 %		{ok, #user{id = Id, user_id = UserId, matricula = Matricula, name = Name, email = Email, type = Type, lotacao = Lotacao}} ->	
@@ -89,14 +90,19 @@ authenticate_user({Login, Password}, _) ->
 %							  <<"lotacao">>, Lotacao}],
 %			{ok, {<<>>, ResourceOwner}};
 %>>>>>>> upstream/master
+%=======
+    case ems_user:find_by_login_and_password(Login, Password) of
+		{ok, User} -> 
+				io:format("\n\n\n Res = ~p \n\n\n",[ems_user:to_resource_owner(User)]),
+				{ok, {<<>>, ems_user:to_resource_owner(User)}};
+%>>>>>>> upstream/master
 		_ -> {error, unauthorized_user}
 	end.
 authenticate_client({ClientId, Secret},_) ->
     case ems_client:find_by_codigo_and_secret(ClientId, Secret) of
-			{ok, Client} ->	{ok, {<<>>,Client}};
-			_ -> {error, unauthorized_client}		
+		{ok, Client} ->	 {ok, {<<>>, Client}};
+		_ -> {error, unauthorized_client}		
     end.
-
     
 get_client_identity(ClientId, _) ->
     case ems_client:find_by_codigo(ClientId) of

@@ -26,7 +26,10 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 		 _ -> {error, invalid_oauth2_grant}
 	end,  
 	case Result of
-		{ok, ResponseData} -> 	ok(Request, ResponseData);		
+		{ok, ResponseData} -> 	
+			io:format("\n\n asdasdasdasdasdasdad \n\n\n"),
+			io:format("\n\n ResponseData = \n ~p \n\n\n",[ResponseData]),
+			ok(Request, ResponseData);		
 		{redirect, ClientId, RedirectUri} -> 
 			LocationPath = iolist_to_binary([Protocol,<<"://"/utf8>>, Host, <<":"/utf8>>,list_to_binary(integer_to_list(Port)),<<"/login/index.html?response_type=code&client_id=">>, ClientId, <<"&redirect_uri=">>, RedirectUri]),
 			redirect(Request, LocationPath);			
@@ -125,7 +128,9 @@ password_grant(Request = #request{authorization = Authorization}) ->
 	Scope = ems_request:get_querystring(<<"scope">>, <<>>, Request),
     case credential_extract({Username,Password},Authorization) of
 		{ok,{User,Pass}} ->
+			io:format("{~p,~p}",[User,Pass]),
 			Authz = oauth2:authorize_password({User,Pass}, Scope, []),
+			io:format("{~p}",[Authz]),
 			issue_token(Authz);
 		Error -> Error
 	end.	
@@ -169,13 +174,14 @@ access_token_request(Request = #request{authorization = Authorization},TypeAuth)
 	end.  
 
 credential_extract({User, Pass}, Authorization) ->
+	io:format("\n{~p,~p}\n",[User,Pass]),
+	io:format("\n{~p}\n",[Authorization]),
 	case User == <<>> of
 		true -> 
 			case Authorization =/= undefined of
 				true ->
 					case ems_http_util:parse_basic_authorization_header(Authorization) of
 						{ok, Login, Password} ->
-							io:format("\n\n\n Login ~p\n\n\n",[Login]),
 							{ok,{list_to_binary(Login), list_to_binary(Password)}};
 						Error -> Error
 					end;
@@ -189,6 +195,8 @@ end.
 
 issue_token({ok, {_, Auth}}) ->
 	{ok, {_, Response}} = oauth2:issue_token(Auth, []),
+		io:format("\n\n R1 =\n ~p \n\n\n",[Response]),
+		io:format("\n\n R2 =\n ~p \n\n\n",[oauth2_response:to_proplist(Response)]),
 	{ok, oauth2_response:to_proplist(Response)};
 issue_token(Error) ->
     Error.
@@ -196,6 +204,8 @@ issue_token(Error) ->
 
 issue_token_and_refresh({ok, {_, Auth}}) ->
 	{ok, {_, Response}} = oauth2:issue_token_and_refresh(Auth, []),
+		io:format("\n\n R1 = \n ~p \n\n\n",[Response]),
+		io:format("\n\n R2 = \n ~p \n\n\n",[oauth2_response:to_proplist(Response)]),
 	{ok, oauth2_response:to_proplist(Response)};
 issue_token_and_refresh(Error) ->
     Error.
@@ -218,6 +228,7 @@ ok(Request, Body) when is_list(Body) ->
 		content_type = <<"application/json;charset=UTF-8">>}
 	};
 ok(Request, Body) ->
+	io:format("{~p}",[Body]),
 	{ok, Request#request{code = 200, 
 		response_data = Body,
 		content_type = <<"application/json;charset=UTF-8">>}

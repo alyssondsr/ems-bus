@@ -41,7 +41,7 @@ create_database(Nodes) ->
 
     mnesia:create_table(user, [{type, set},
 							   {disc_copies, Nodes},
-							   {index, [#user.login, #user.cpf, #user.email, #user.user_id]},
+							   {index, [#user.codigo, #user.login, #user.cpf, #user.email]},
 							   {attributes, record_info(fields, user)}]),
 
 	mnesia:create_table(user_permission, [{type, set},
@@ -49,6 +49,11 @@ create_database(Nodes) ->
 										   {index, [#user_permission.hash, #user_permission.hash2]},
 										   {attributes, record_info(fields, user_permission)}]),
 
+
+	mnesia:create_table(user_perfil, [{type, set},
+									   {disc_copies, Nodes},
+									   {index, [#user_perfil.user_id]},
+									   {attributes, record_info(fields, user_perfil)}]),
 
     mnesia:create_table(client, [{type, set},
 							     {disc_copies, Nodes},
@@ -60,8 +65,8 @@ create_database(Nodes) ->
 								   {attributes, record_info(fields, sequence)}]),
 
     mnesia:create_table(counter, [{type, set},
-											 {ram_copies, Nodes},
-											 {attributes, record_info(fields, sequence)}]),
+								  {ram_copies, Nodes},
+								  {attributes, record_info(fields, sequence)}]),
 
     mnesia:create_table(request, [{type, set},
 								  {ram_copies, Nodes},

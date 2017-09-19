@@ -2,8 +2,8 @@
 	{
 		"name" : "/authorize",
 		"comment": "OAuth 2.0",
-		"owner": "oauth2ems",
-		"version": "1",
+		"owner": "auth_user",
+		"version": "1.0.0",
 		"service" : "oauth2ems_authorize:execute",
 		"url": "/authorize",
 		"type": "GET",
@@ -62,9 +62,9 @@
 
 	{
 		"name" : "/authorize",
-		"comment": "Oauth 2.0",
-		"owner": "oauth2ems",
-		"version": "1",
+		"comment": "OAuth 2.0",
+		"owner": "auth_user",
+		"version": "1.0.0",
 		"service" : "oauth2ems_authorize:execute",
 		"url": "/authorize",
 		"type": "POST",
@@ -129,11 +129,12 @@
 		],
 		"lang" : "erlang"
 	},
+	
 	{
 		"name" : "/code_request",
 		"comment": "Oauth 2.0",
-		"owner": "oauth2ems",
-		"version": "1",
+		"owner": "auth_user",
+		"version": "1.0.0",
 		"service" : "oauth2ems_authorize:code_request",
 		"url": "/code_request",
 		"type": "GET",
@@ -178,11 +179,12 @@
 		],
 		"lang" : "erlang"
 	},
+	
 	{
 		"name" : "/callback1",
 		"comment": "Simulção de recurso",
-		"owner": "oauth2ems",
-		"version": "1",
+		"owner": "auth_user",
+		"version": "1.0.0",
 		"service" : "oauth2mac_client:callback",
 		"url": "/callback1",
 		"type": "GET",
@@ -200,6 +202,7 @@
 		],
 		"lang" : "erlang"
 	},
+	
 	{
 		"name" : "/callback",
 		"comment": "Simulção de recurso",
@@ -217,6 +220,7 @@
 		],
 		"lang" : "erlang"
 	},
+	
 	{
 		"name" : "/authn",
 		"comment": "Autenticação de dono do recurso",
@@ -227,6 +231,7 @@
 		"type": "GET",
 		"lang" : "erlang"
 	},
+	
 	{
 		"name": "/authz",
 		"comment": "Pagina de login ErlangMS",

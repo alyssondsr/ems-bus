@@ -154,25 +154,27 @@ code_change(_OldVsn, State, _Extra) ->
 update_or_load_users(State = #state{datasource = Datasource,
 									last_update = LastUpdate}) ->
 	NextUpdate = ems_util:date_dec_minute(calendar:local_time(), 6), % garante que os dados serão atualizados mesmo que as datas não estejam sincronizadas
-	TimestampStr = ems_util:timestamp_str(),
+	LastUpdateStr = ems_util:timestamp_str(),
 	case is_empty() orelse LastUpdate == undefined of
 		true -> 
 			?DEBUG("ems_user_loader checkpoint. operation: load_users."),
-			case load_users_from_datasource(Datasource, TimestampStr, State) of
+			case load_users_from_datasource(Datasource, LastUpdateStr, State) of
 				ok -> 
 					ems_db:set_param(<<"ems_user_loader_lastupdate">>, NextUpdate),
 					State2 = State#state{last_update = NextUpdate},
 					ems_user_permission_loader:force_load_permissions(),
+					ems_user_perfil_loader:force_load_perfil(),
 					{ok, State2};
 				Error -> Error
 			end;
 		false ->
 			?DEBUG("ems_user_loader checkpoint. operation: update_users   last_update: ~s.", [ems_util:timestamp_str(LastUpdate)]),
-			case update_users_from_datasource(Datasource, LastUpdate, TimestampStr, State) of
+			case update_users_from_datasource(Datasource, LastUpdate, LastUpdateStr, State) of
 				ok -> 
 					ems_db:set_param(<<"ems_user_loader_lastupdate">>, NextUpdate),
 					State2 = State#state{last_update = NextUpdate},
 					ems_user_permission_loader:update_or_load_permissions(),
+					ems_user_perfil_loader:update_or_load_perfil(),
 					{ok, State2};
 				Error -> Error
 			end
@@ -256,9 +258,10 @@ update_users_from_datasource(Datasource, LastUpdate, CtrlUpdate, #state{allow_lo
 						ok;
 					{_, _, RecordsPessoa} ->
 						%?DEBUG("Update users ~p.", [Records]),
+						LastUpdateStr = ems_util:timestamp_str(LastUpdate),
 						UpdatePessoaFunc = fun() ->
 							CountPessoa = update_users(RecordsPessoa, 0, CtrlUpdate),
-							ems_logger:info("ems_user_loader update ~p users tipo pessoa since ~s.", [CountPessoa, ems_util:timestamp_str(LastUpdate)])
+							ems_logger:info("ems_user_loader update ~p users tipo pessoa since ~s.", [CountPessoa, LastUpdateStr])
 						end,
 						mnesia:activity(transaction, UpdatePessoaFunc),
 						case AllowLoadAluno of
@@ -271,7 +274,7 @@ update_users_from_datasource(Datasource, LastUpdate, CtrlUpdate, #state{allow_lo
 										%?DEBUG("Update users ~p.", [Records]),
 										UpdateAlunoFunc = fun() ->
 											CountAluno = update_users(RecordsAluno, 0, CtrlUpdate),
-											ems_logger:info("ems_user_loader update ~p users tipo aluno since ~s.", [CountAluno, ems_util:timestamp_str(LastUpdate)])
+											ems_logger:info("ems_user_loader update ~p users tipo aluno since ~s.", [CountAluno, LastUpdateStr])
 										end,
 										mnesia:activity(transaction, UpdateAlunoFunc);
 									{error, Reason} = Error -> 
@@ -305,7 +308,7 @@ insert_users([{Codigo, Login, Name, Cpf, Email, Password, Type, PasswdCrypto,
 			   LotacaoCentro, LotacaoCodigoFuncao, LotacaoFuncao,
 			   LotacaoOrgao, LotacaoCodigoCargo, LotacaoCargo}|T], Count, CtrlInsert) ->
 	User = #user{id = ems_db:sequence(user),
-				 user_id = Codigo,
+				 codigo = Codigo,
 				 login = ?UTF8_STRING(Login),
 				 name = ?UTF8_STRING(Name),
 				 cpf = ?UTF8_STRING(Cpf),
@@ -354,7 +357,7 @@ update_users([{Codigo, Login, Name, Cpf, Email, Password, Type, PasswdCrypto,
 			   LotacaoOrgao, LotacaoCodigoCargo, LotacaoCargo}|T], Count, CtrlUpdate) ->
 	case ems_user:find_by_codigo(Codigo) of
 		{ok, User} ->
-			User2 = User#user{user_id = Codigo,
+			User2 = User#user{codigo = Codigo,
 							  login = ?UTF8_STRING(Login),
 							  name = ?UTF8_STRING(Name),
 							  cpf = ?UTF8_STRING(Cpf),
@@ -391,7 +394,7 @@ update_users([{Codigo, Login, Name, Cpf, Email, Password, Type, PasswdCrypto,
 							  ctrl_update = CtrlUpdate};
 		{error, enoent} -> 
 			User2 = #user{id = ems_db:sequence(user),
-						  user_id = Codigo,
+						  codigo = Codigo,
 						  login = ?UTF8_STRING(Login),
 						  name = ?UTF8_STRING(Name),
 						  cpf = ?UTF8_STRING(Cpf),
@@ -503,8 +506,11 @@ sql_load_users_tipo_pessoa() ->
 						 on pfe.PFmEmaCodigo = em.EmaCodigo
 				 left join Sipes.dbo.DadosFuncionais df
 						 on p.PesCodigoPessoa = df.PesCodigoPessoa
+			     left join Sipes.dbo.Contratos c
+                        on df.MatSipes = c.MatSipes
 				 left join Sipes.dbo.vw_Genericos_LotacaoFuncao lf
 						 on df.MatSipes = lf.Sipes
+			where c.DtDesliga >= GETDATE() or c.DtDesliga IS NULL
 	) as t_users
 	order by t_users.TipoEmailPessoa
 	".
@@ -659,9 +665,11 @@ sql_update_users_tipo_pessoa() ->
 						 on pfe.PFmEmaCodigo = em.EmaCodigo
 				 left join Sipes.dbo.DadosFuncionais df
 						 on p.PesCodigoPessoa = df.PesCodigoPessoa
+			     left join Sipes.dbo.Contratos c
+                        on df.MatSipes = c.MatSipes 
 				 left join Sipes.dbo.vw_Genericos_LotacaoFuncao lf
 						 on df.MatSipes = lf.Sipes
-			where u.UsuDataAlteracao >= ? or p.PesDataAlteracao >= ? or em.EmaDataAlteracao >= ?
+			where (c.DtDesliga >= GETDATE() or c.DtDesliga IS NULL) and (u.UsuDataAlteracao >= ? or p.PesDataAlteracao >= ? or em.EmaDataAlteracao >= ?)
 	) as t_users
 	order by t_users.TipoPessoa, t_users.TipoEmailPessoa
 	".

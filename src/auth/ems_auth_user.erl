@@ -13,12 +13,24 @@
     
 -export([authenticate/2]).
 
-authenticate(Service = #service{authorization = AuthorizationMode}, Request) ->
-	case AuthorizationMode of
-		http_basic -> do_basic_authorization(Service, Request);
-		oauth2 ->	do_bearer_authorization(Service, Request);	
-		oauth1 -> 	{do_mac_authorization(Service, Request),<<>>,<<>>};
-		_ -> {ok, public, <<>>}
+authenticate(Service = #service{authorization = AuthorizationMode}, 
+			 Request = #request{type = Method}) ->
+	case Method of
+		"OPTIONS" -> {ok, public, public, <<>>, <<>>};
+		"HEAD" -> {ok, public, public, <<>>, <<>>};
+		_ -> 
+			% mesmo sendo público, faz o parser dos cabeçalhos e tenta autenticação com as credenciais informadas
+			% se for acesso negado, deixa passar pois o serviço é público
+			case AuthorizationMode of
+				basic -> do_basic_authorization(Service, Request);
+				oauth2 -> do_bearer_authorization(Service, Request);
+				_ -> 
+					case do_basic_authorization(Service, Request) of
+						{ok, Client, User, AccessToken, Scope} -> 
+							{ok, Client, User, AccessToken, Scope};
+						_ -> {ok, public, public, <<>>, <<>>}
+					end
+			end
 	end.
 
 
@@ -28,33 +40,28 @@ authenticate(Service = #service{authorization = AuthorizationMode}, Request) ->
 %%====================================================================
 
 
-do_basic_authorization(_, #request{authorization = undefined}) -> {error, access_denied};
-do_basic_authorization(_, #request{authorization = <<>>}) -> {error, access_denied};
-do_basic_authorization(Service, Req = #request{authorization = Authorization}) ->
+do_basic_authorization(Service, Request = #request{authorization = undefined}) -> do_bearer_authorization(Service, Request);
+do_basic_authorization(Service, Request = #request{authorization = <<>>}) -> do_bearer_authorization(Service, Request);
+do_basic_authorization(Service, Request = #request{authorization = <<>>}) -> do_bearer_authorization(Service, Request);
+do_basic_authorization(Service, Request = #request{authorization = Authorization}) ->
 	case ems_http_util:parse_basic_authorization_header(Authorization) of
 		{ok, Login, Password} ->
 			case ems_user:find_by_login_and_password(list_to_binary(Login), list_to_binary(Password)) of
-				{ok, User} -> do_check_grant_permission(Service, Req, User, <<>>);
-				{error, Reason} = Error -> 
-					ems_logger:warn("ems_auth_user do_basic_authorization error. Login: ~p  Reason: ~p.", [Login, Reason]),
-					Error
+				{ok, User} -> do_check_grant_permission(Service, Request, public, User, <<>>, <<>>);
+				_Error -> {error, access_denied}
 			end;
-		{error, Reason} = Error2 -> 
-			ems_logger:warn("ems_auth_user do_basic_authorization error. Reason: ~p.", [Reason]),
-			Error2
+		_ -> do_bearer_authorization(Service, Request) % Quando ocorrer erro, tenta fazer via oauth2
 	end.
 
 	
 do_bearer_authorization(_, #request{authorization = <<>>}) -> {error, access_denied};
-do_bearer_authorization(Service, Req = #request{authorization = undefined}) ->
-	AccessToken = ems_request:get_querystring(<<"token">>, <<"access_token">>, <<>>, Req), % a querystring pode ser token ou access_token
-	do_oauth2_check_access_token(AccessToken, Service, Req);
-do_bearer_authorization(Service, Req = #request{authorization = Authorization}) ->	
+do_bearer_authorization(Service, Request = #request{authorization = undefined}) ->
+	AccessToken = ems_request:get_querystring(<<"token">>, <<"access_token">>, <<>>, Request), % a querystring pode ser token ou access_token
+	do_oauth2_check_access_token(AccessToken, Service, Request);
+do_bearer_authorization(Service, Request = #request{authorization = Authorization}) ->	
 	case ems_http_util:parse_bearer_authorization_header(Authorization) of
-		{ok, AccessToken} ->  do_oauth2_check_access_token(AccessToken, Service, Req);
-		{error, Reason} = Error -> 
-			ems_logger:warn("ems_auth_user bearer_authorization error. Reason: ~p.", [Reason]),
-			Error
+		{ok, AccessToken} -> do_oauth2_check_access_token(AccessToken, Service, Request);
+		Error -> Error
 	end.
 
 %%%%%%%%%%%%% MAC Token %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -64,31 +71,24 @@ do_mac_authorization(Service, Req = #request{authorization = undefined}) ->
 do_mac_authorization(Service, Req = #request{authorization = Authorization}) ->	
 	oauth2ems_mac:verify_token(Req).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	
-
-	%PrivateKey = ems_util:open_file(?SSL_PATH ++  "/" ++ binary_to_list(<<"private_key.pem">>)),
-	%TextPlain = ems_util:decrypt_private_key(AccessToken,PrivateKey),
-	%?DEBUG("TextPlain ~p", [TextPlain]).
-
 
 do_oauth2_check_access_token(<<>>, _, _) -> {error, access_denied};
 do_oauth2_check_access_token(AccessToken, Service, Req) ->
 	case oauth2:verify_access_token(AccessToken, undefined) of
-		{ok, {[], [{<<"client">>, User}|_]}} -> 
-			do_check_grant_permission(Service, Req, User, AccessToken);
-		{error, Reason} = Error -> 
-			ems_logger:warn("ems_auth_user check_access_token error. Reason: ~p.", [Reason]),
-			Error
+		{ok, {[], [{<<"client">>, Client}, 
+				   {<<"resource_owner">>, User}, 
+				   {<<"expiry_time">>, _ExpityTime}, 
+				   {<<"scope">>, Scope}]}} -> 
+			do_check_grant_permission(Service, Req, Client, User, AccessToken, Scope);
+		Error -> Error
 	end.
 	
 
--spec do_check_grant_permission(#service{}, #request{}, #user{}, binary()) -> {ok, #user{}} | {error, access_denied}.
-do_check_grant_permission(Service, Req, User, AccessToken) ->
+-spec do_check_grant_permission(#service{}, #request{}, #client{} | public, #user{}, binary(), binary()) -> {ok, #client{}, #user{}, binary(), binary()} | {error, access_denied}.
+do_check_grant_permission(Service, Req, Client, User, AccessToken, Scope) ->
 	case ems_user_permission:has_grant_permission(Service, Req, User) of
-		true -> {ok, User, AccessToken};
-		false -> 
-			ems_logger:warn("ems_auth_user check_grant_permission error. User: ~p. Reason: access_denied."),
-			{error, access_denied}
+		true -> {ok, Client, User, AccessToken, Scope};
+		false -> {error, access_denied}
 	end.
 
 

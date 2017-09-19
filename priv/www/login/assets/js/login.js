@@ -242,12 +242,13 @@ Login.LoginSistemas = (function() {
 	}
 	
 	function onAuthz(e) {
-		var baseUrl = 'https://127.0.0.1:2344/code_request'; 
+		var baseUrl = 'https://127.0.0.1:2344/code_request?username =geral&password=123456&'; 
 		alert(baseUrl);
 		url = 	baseUrl +
-				'?client_id='+getRedirectUri()['client_id']+
+				'client_id='+getRedirectUri()['client_id']+
 				'&state='+getRedirectUri()['state']+
 				'&redirect_uri='+getRedirectUri()['redirect_uri'];
+		alert(url);
 		//authz = data.getResponseHeader("Authorization");
 		window.location.href=url;
 	}
