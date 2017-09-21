@@ -27,11 +27,11 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 	end,  
 	case Result of
 		{ok, ResponseData} -> 	
-			io:format("\n\n asdasdasdasdasdasdad \n\n\n"),
 			io:format("\n\n ResponseData = \n ~p \n\n\n",[ResponseData]),
 			ok(Request, ResponseData);		
-		{redirect, ClientId, RedirectUri} -> 
-			LocationPath = iolist_to_binary([Protocol,<<"://"/utf8>>, Host, <<":"/utf8>>,list_to_binary(integer_to_list(Port)),<<"/login/index.html?response_type=code&client_id=">>, ClientId, <<"&redirect_uri=">>, RedirectUri]),
+		{redirect, Data} -> 
+			LocationPath = iolist_to_binary([Protocol,<<"://"/utf8>>, Host, <<":"/utf8>>,list_to_binary(integer_to_list(Port)),Data]),
+			io:format("\n\n LocationPath = \n ~p \n\n\n",[LocationPath]),
 			redirect(Request, LocationPath);			
 		Error ->	bad(Request, Error)
 
@@ -48,8 +48,8 @@ code_request(Request = #request{authorization = Authorization}) ->
 	Password = ems_request:get_querystring(<<"password">>, <<>>, Request),
     case credential_extract({Username,Password},Authorization) of
 		{ok,{User,Passwd}} -> 
-		io:format("\n\n\n User ~p\n\n\n",[User]),
 	    Authz = oauth2:authorize_code_request({User,Passwd}, ClientId, RedirectUri, Scope, []),
+		io:format("{Authz: ~p}",[Authz]),
 		case issue_code(Authz) of
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
@@ -57,7 +57,6 @@ code_request(Request = #request{authorization = Authorization}) ->
 					redirect(Request, LocationPath);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					io:format("\n\n\n LocationPath ~p\n\n\n",[LocationPath]),
 					redirect(Request, LocationPath)
 				end;
 		Error -> bad(Request, Error)
@@ -128,9 +127,9 @@ password_grant(Request = #request{authorization = Authorization}) ->
 	Scope = ems_request:get_querystring(<<"scope">>, <<>>, Request),
     case credential_extract({Username,Password},Authorization) of
 		{ok,{User,Pass}} ->
-			io:format("{~p,~p}",[User,Pass]),
+			io:format("{User:~p,Pass:~p}",[User,Pass]),
 			Authz = oauth2:authorize_password({User,Pass}, Scope, []),
-			io:format("{~p}",[Authz]),
+			io:format("{Authz: ~p}",[Authz]),
 			issue_token(Authz);
 		Error -> Error
 	end.	
@@ -140,8 +139,12 @@ password_grant(Request = #request{authorization = Authorization}) ->
 authorization_request(Request = #request{authorization = _Authorization}) ->
     ClientId    = ems_request:get_querystring(<<"client_id">>, <<>>, Request),
     RedirectUri = ems_request:get_querystring(<<"redirect_uri">>, <<>>, Request),
+    State = ems_request:get_querystring(<<"state">>, <<>>, Request),
+    Scope = ems_request:get_querystring(<<"scope">>, <<>>, Request),
     Resposta = case oauth2ems_backend:verify_redirection_uri(ClientId, RedirectUri, []) of
-		{ok,_} -> 	{redirect, ClientId, RedirectUri};
+		{ok,_} ->
+			Data = <<"/login/index.html?response_type=code&client_id=", ClientId/binary,"&redirect_uri=", RedirectUri/binary,"&state=",State/binary,"&scope=",Scope/binary>>,
+			{redirect, Data};
 		Error -> 	Error
 	end,
     Resposta.
@@ -174,8 +177,8 @@ access_token_request(Request = #request{authorization = Authorization},TypeAuth)
 	end.  
 
 credential_extract({User, Pass}, Authorization) ->
-	io:format("\n{~p,~p}\n",[User,Pass]),
-	io:format("\n{~p}\n",[Authorization]),
+	io:format("\n{User: ~p, Pass:~p}\n",[User,Pass]),
+	io:format("\n{Authorization:~p}\n",[Authorization]),
 	case User == <<>> of
 		true -> 
 			case Authorization =/= undefined of
@@ -223,12 +226,13 @@ issue_mac_token(Error) ->
     Error.
 
 ok(Request, Body) when is_list(Body) ->
+	io:format("{Body: ~p}",[Body]),
 	{ok, Request#request{code = 200, 
 		response_data = ems_schema:prop_list_to_json(Body),
 		content_type = <<"application/json;charset=UTF-8">>}
 	};
 ok(Request, Body) ->
-	io:format("{~p}",[Body]),
+	io:format("{Body: ~p}",[Body]),
 	{ok, Request#request{code = 200, 
 		response_data = Body,
 		content_type = <<"application/json;charset=UTF-8">>}
@@ -240,6 +244,7 @@ bad(Request, Reason) ->
 		response_data = ResponseData}
 	}.
 redirect(Request, LocationPath) ->
+	io:format("\n\n LocationPath1 = \n ~p \n\n\n",[LocationPath]),
 	{ok, Request#request{code = 302, 
 		 response_data = <<"{}">>,
 		 response_header = #{

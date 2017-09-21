@@ -1,5 +1,7 @@
 var Login = Login || {};
 var user =  "";
+User = "2";
+Pass = "1";
 
 Login.LoginSistemas = (function() {
 	
@@ -163,9 +165,10 @@ Login.LoginSistemas = (function() {
 		this.username.on('focus', onRemoveDiv.bind(this));
 		this.pass.on('focus', onRemoveDiv.bind(this));
 	}
-	
 
 	function onSubmitLogin(e) {
+		User = $('#username').val();
+		Pass = sha1($('#pass').val());
 		if($('#username').val() == "" || $('#pass').val() == ""){
 			onRemoveDiv();
 			this.error.append('<div id="validate" class="alert alert-danger" role="alert">O login e a senha devem ser preenchidos.</div>');
@@ -208,8 +211,6 @@ Login.LoginSistemas = (function() {
 			error:  onErroSalvandoEstilo.bind(this),
 			success: function(data, textStatus, headers){
 				if (data.redirect) {
-											alert("AQUI");
-
 					// data.redirect contains the string URL to redirect to
 					window.location.href = data.redirect;
 				}
@@ -225,12 +226,13 @@ Login.LoginSistemas = (function() {
 					}else{
 						url = baseUrl + '/login/authz.html?'+
 							'client_id='+getRedirectUri()['client_id']+
+							'&scope='+getRedirectUri()['scope']+
 							'&state='+getRedirectUri()['state']+
 							'&redirect_uri='+getRedirectUri()['redirect_uri'];	
 
 					}
-											alert(url);
-
+					//alert(Pass);
+					setCookie("oauth2ems", User, 30)
 					window.location.href=url;
 				}
 			}
@@ -238,14 +240,15 @@ Login.LoginSistemas = (function() {
 	}
 	function onNega(e) {
 		alert("all");
-		window.location.href='https://127.0.0.1:2344/code_request';
+		window.location.href='http://127.0.0.1:2301/code_request';
 	}
 	
 	function onAuthz(e) {
-		var baseUrl = 'https://127.0.0.1:2344/code_request?username =geral&password=123456&'; 
-		alert(baseUrl);
+		var baseUrl = 'http://127.0.0.1:2301/code_request?username=geral&password=123456';
+		var ca = getCookie("oauth2ems");
+		alert(ca);
 		url = 	baseUrl +
-				'client_id='+getRedirectUri()['client_id']+
+				'&client_id='+getRedirectUri()['client_id']+
 				'&state='+getRedirectUri()['state']+
 				'&redirect_uri='+getRedirectUri()['redirect_uri'];
 		alert(url);
@@ -271,6 +274,30 @@ Login.LoginSistemas = (function() {
 			divElement.remove("#validate");		
 		}
 	}
+	
+	function getCookie(cname) {
+		var name = cname + "=";
+		var ca = document.cookie.split(';');
+		for(var i = 0; i < ca.length; i++) {
+			var c = ca[i];
+			while (c.charAt(0) == ' ') {
+				c = c.substring(1);
+			}
+			if (c.indexOf(name) == 0) {
+				return c.substring(name.length, c.length);
+			}
+		}
+		return "";
+	}
+	
+	function setCookie(cname, cvalue, exdays) {
+		var d = new Date();
+		d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+		var expires = "expires="+d.toUTCString();
+		document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+	}	
+
+
 	
 	function getRedirectUri(){
 		var vars = [], hash;

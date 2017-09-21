@@ -94,7 +94,7 @@ authenticate_user({Login, Password}, _) ->
     case ems_user:find_by_login_and_password(Login, Password) of
 		{ok, User} -> 
 				io:format("\n\n\n Res = ~p \n\n\n",[ems_user:to_resource_owner(User)]),
-				{ok, {<<>>, ems_user:to_resource_owner(User)}};
+				{ok, {<<>>, {Login, <<"passwd">>}}};
 %>>>>>>> upstream/master
 		_ -> {error, unauthorized_user}
 	end.
@@ -139,7 +139,7 @@ resolve_access_token(AccessToken, _) ->
     end.
 
 revoke_access_code(AccessCode, _AppContext) ->
-    delete(?ACCESS_CODE_TABLE, AccessCode),
+    %delete(?ACCESS_CODE_TABLE, AccessCode),
     {ok, []}.
 
 revoke_access_token(AccessToken, _) ->
