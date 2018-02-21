@@ -27,11 +27,9 @@ execute(Request = #request{type = Type, protocol_bin = Protocol, port = Port, ho
 	end,  
 	case Result of
 		{ok, ResponseData} -> 	
-			io:format("\n\n ResponseData = \n ~p \n\n\n",[ResponseData]),
 			ok(Request, ResponseData);		
 		{redirect, Data} -> 
 			LocationPath = iolist_to_binary([Protocol,<<"://"/utf8>>, Host, <<":"/utf8>>,list_to_binary(integer_to_list(Port)),Data]),
-			io:format("\n\n LocationPath = \n ~p \n\n\n",[LocationPath]),
 			redirect(Request, LocationPath);			
 		Error ->	bad(Request, Error)
 
@@ -49,7 +47,6 @@ code_request(Request = #request{authorization = Authorization}) ->
     case credential_extract({Username,Password},Authorization) of
 		{ok,{User,Passwd}} -> 
 	    Authz = oauth2:authorize_code_request({User,Passwd}, ClientId, RedirectUri, Scope, []),
-		io:format("{Authz: ~p}",[Authz]),
 		case issue_code(Authz) of
 				{ok, Response} ->
 					Code = element(2,lists:nth(1,Response)),
@@ -127,9 +124,7 @@ password_grant(Request = #request{authorization = Authorization}) ->
 	Scope = ems_request:get_querystring(<<"scope">>, <<>>, Request),
     case credential_extract({Username,Password},Authorization) of
 		{ok,{User,Pass}} ->
-			io:format("{User:~p,Pass:~p}",[User,Pass]),
 			Authz = oauth2:authorize_password({User,Pass}, Scope, []),
-			io:format("{Authz: ~p}",[Authz]),
 			issue_token(Authz);
 		Error -> Error
 	end.	
@@ -177,8 +172,6 @@ access_token_request(Request = #request{authorization = Authorization},TypeAuth)
 	end.  
 
 credential_extract({User, Pass}, Authorization) ->
-	io:format("\n{User: ~p, Pass:~p}\n",[User,Pass]),
-	io:format("\n{Authorization:~p}\n",[Authorization]),
 	case User == <<>> of
 		true -> 
 			case Authorization =/= undefined of
@@ -198,8 +191,6 @@ end.
 
 issue_token({ok, {_, Auth}}) ->
 	{ok, {_, Response}} = oauth2:issue_token(Auth, []),
-		io:format("\n\n R1 =\n ~p \n\n\n",[Response]),
-		io:format("\n\n R2 =\n ~p \n\n\n",[oauth2_response:to_proplist(Response)]),
 	{ok, oauth2_response:to_proplist(Response)};
 issue_token(Error) ->
     Error.
@@ -207,8 +198,6 @@ issue_token(Error) ->
 
 issue_token_and_refresh({ok, {_, Auth}}) ->
 	{ok, {_, Response}} = oauth2:issue_token_and_refresh(Auth, []),
-		io:format("\n\n R1 = \n ~p \n\n\n",[Response]),
-		io:format("\n\n R2 = \n ~p \n\n\n",[oauth2_response:to_proplist(Response)]),
 	{ok, oauth2_response:to_proplist(Response)};
 issue_token_and_refresh(Error) ->
     Error.
@@ -226,13 +215,11 @@ issue_mac_token(Error) ->
     Error.
 
 ok(Request, Body) when is_list(Body) ->
-	io:format("{Body: ~p}",[Body]),
 	{ok, Request#request{code = 200, 
 		response_data = ems_schema:prop_list_to_json(Body),
 		content_type = <<"application/json;charset=UTF-8">>}
 	};
 ok(Request, Body) ->
-	io:format("{Body: ~p}",[Body]),
 	{ok, Request#request{code = 200, 
 		response_data = Body,
 		content_type = <<"application/json;charset=UTF-8">>}
@@ -244,7 +231,6 @@ bad(Request, Reason) ->
 		response_data = ResponseData}
 	}.
 redirect(Request, LocationPath) ->
-	io:format("\n\n LocationPath1 = \n ~p \n\n\n",[LocationPath]),
 	{ok, Request#request{code = 302, 
 		 response_data = <<"{}">>,
 		 response_header = #{
