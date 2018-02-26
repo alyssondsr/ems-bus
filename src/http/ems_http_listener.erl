@@ -22,8 +22,8 @@
 
 -define(SERVER, ?MODULE).
 
-% estado do servidor
--record(state, {}).
+-record(state, {http_max_content_length,
+				http_header_default}).
 
 
 %%====================================================================
@@ -49,14 +49,17 @@ init({IpAddress,
 						  tcp_max_connections = MaxConnections,
 						  tcp_ssl_cacertfile = SslCaCertFile,
 						  tcp_ssl_certfile = SslCertFile,
-						  tcp_ssl_keyfile = SslKeyFile},
+						  tcp_ssl_keyfile = SslKeyFile,
+						  http_max_content_length = HttpMaxContentLength},
 	  ListenerName}) ->
-	  Dispatch = cowboy_router:compile([
+    State = #state{http_max_content_length = HttpMaxContentLength,
+				   http_header_default = get_http_header_default()},
+	Dispatch = cowboy_router:compile([
 		{'_', [
-			{"/websocket", ems_websocket_handler, []},
-			{'_', ems_http_handler, []}
+			{"/websocket", ems_websocket_handler, State},
+			{'_', ems_http_handler, State}
 		]}
-	]),
+	  ]),
 	ProtocolStr = binary_to_list(Protocol),
 	IpAddressStr = inet_parse:ntoa(IpAddress),
 	case IsSsl of
@@ -64,9 +67,9 @@ init({IpAddress,
 			Ret = cowboy:start_tls(ListenerName, [  {ip, IpAddress},
 													{port, Port},
 													{max_connections, MaxConnections},
-													{cacertfile, SslCaCertFile},
-													{certfile, SslCertFile},
-													{keyfile, SslKeyFile}
+													{cacertfile, binary_to_list(SslCaCertFile)},
+													{certfile, binary_to_list(SslCertFile)},
+													{keyfile, binary_to_list(SslKeyFile)}
 												  ], #{compress => true, 
 													   env => #{dispatch => Dispatch}});
 		false ->
@@ -79,11 +82,11 @@ init({IpAddress,
 	end,
 	case Ret of
 		{ok, _PidCowboy} -> 
-			ems_logger:info("ems_http_listener listener ~s in port ~p on IP ~s.", [ProtocolStr, Port, IpAddressStr]);
-		{error,eaddrinuse} -> 
+			ems_logger:info("ems_http_listener listener ~s in ~s:~p.", [ProtocolStr, IpAddressStr, Port]);
+		{error, eaddrinuse} -> 
 			ems_logger:error("ems_http_listener can not listen ~s on port ~p because it is already in use on IP ~s by other process.", [ProtocolStr, Port, IpAddressStr])
 	end,
-	{ok, #state{}}.
+	{ok, State}.
 	
 	
 		
@@ -102,3 +105,15 @@ terminate(_Reason, _State) -> ok.
  
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
+get_http_header_default() ->
+	#{
+		<<"server">> => ?SERVER_NAME,
+		<<"content-type">> => ?CONTENT_TYPE_JSON,
+		<<"ems-node">> => ems_util:node_binary(),
+		<<"cache-control">> => ?CACHE_CONTROL_NO_CACHE,
+		<<"access-control-allow-origin">> => ?ACCESS_CONTROL_ALLOW_ORIGIN,
+		<<"access-control-max-age">> => ?ACCESS_CONTROL_MAX_AGE,
+		<<"access-control-allow-headers">> => ?ACCESS_CONTROL_ALLOW_HEADERS,
+		<<"access-control-allow-methods">> => ?ACCESS_CONTROL_ALLOW_METHODS,
+		<<"access-control-expose-headers">> => ?ACCESS_CONTROL_EXPOSE_HEADERS
+	}.

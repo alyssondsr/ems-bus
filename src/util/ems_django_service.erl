@@ -6,11 +6,11 @@
 -export([execute/1]).
 
 execute(Request) ->	
-	case ems_request:load_from_file_req(Request) of
-		{ok, Request2 = #request{filename = FileName, service = Service}} = FileReq->
-			case ems_util:load_erlang_module(FileName) of
+	case ems_util:load_from_file_req(Request) of
+		{ok, Request2 = #request{filename = Filename, service = Service}} = FileReq->
+			case ems_util:load_erlang_module(Filename) of
 				{ok, ModuleController} ->
-					case ems_django:load_module_template(FileName) of
+					case ems_django:load_module_template(Filename) of
 						{ok, ModuleTemplate} -> 
 							Service2 = Service#service{module_name = atom_to_list(ModuleController),
 													   module = ModuleController,
@@ -29,6 +29,7 @@ execute(Request) ->
 							end;
 						{error, Reason} -> {error, Request2#request{code = 500, 
 																	reason = einvalid_django_sintax,
+																	content_type = ?CONTENT_TYPE_JSON,
 																	response_data = ems_schema:to_json({error, Reason})}
 							 }
 					end;
@@ -36,6 +37,7 @@ execute(Request) ->
 				{error, Reason} -> 
 					{error, Request2#request{code = 500, 
 											 reason = einvalid_django_sintax,
+											 content_type = ?CONTENT_TYPE_JSON,
 											 response_data = ems_schema:to_json({error, Reason})}
 							 }
 			end;

@@ -1,8 +1,64 @@
 [
 	{
+		"name": "/netadm/restart",
+		"comment": "Restart ems-bus.",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_netadm_service:restart",
+		"url": "/netadm/restart",
+		"async": "false",
+		"result_cache" : 0,
+		"type": "POST",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+
+	{
+		"name": "/netadm/pid",
+		"comment": "Get main pid of ems-bus.",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_netadm_service:pid",
+		"url": "/netadm/pid",
+		"async": "false",
+		"result_cache" : 0,
+		"type": "GET",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+
+	{
+		"name": "/netadm/tasks",
+		"comment": "Get total tasks running.",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_netadm_service:tasks",
+		"url": "/netadm/tasks",
+		"async": "false",
+		"result_cache" : 0,
+		"type": "GET",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+
+	{
+		"name": "/netadm/uptime",
+		"comment": "Get ems-bus uptime.",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_netadm_service:uptime",
+		"url": "/netadm/uptime",
+		"async": "false",
+		"result_cache" : 0,
+		"type": "GET",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+
+	{
 		"name": "/netadm/names",
 		"comment": "List cluster services and port.",
-		"owner": "emsbus",
+		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:names",
 		"url": "/netadm/names",
@@ -16,7 +72,7 @@
 	{
 		"name": "/netadm/world",
 		"comment": "List cluster services.",
-		"owner": "emsbus",
+		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:world",
 		"url": "/netadm/world",
@@ -30,7 +86,7 @@
 	{
 		"name": "/netadm/hostfile",
 		"comment": "List content of Erlang hostfile.",
-		"owner": "emsbus",
+		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:hostfile",
 		"url": "/netadm/hostfile",
@@ -43,7 +99,7 @@
 	{
 		"name": "/netadm/hostname",
 		"comment": "Get ems-bus hostname.",
-		"owner": "emsbus",
+		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:hostname",
 		"url": "/netadm/hostname",
@@ -56,7 +112,7 @@
 	{
 		"name": "/netadm/localhost",
 		"comment": "Get ems-bus localhost.",
-		"owner": "emsbus",
+		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:localhost",
 		"url": "/netadm/localhost",
@@ -69,7 +125,7 @@
 	{
 		"name": "/netadm/memory",
 		"comment": "Get ems-bus memory.",
-		"owner": "emsbus",
+		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:memory",
 		"url": "/netadm/memory",
@@ -83,7 +139,7 @@
 	{
 		"name": "/netadm/timestamp",
 		"comment": "Get ems-bus timestamp.",
-		"owner": "emsbus",
+		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:timestamp",
 		"url": "/netadm/timestamp",
@@ -97,7 +153,7 @@
 	{
 		"name": "/netadm/threads",
 		"comment": "Get ems-bus threads count.",
-		"owner": "emsbus",
+		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:threads",
 		"url": "/netadm/threads",
@@ -111,7 +167,7 @@
 	{
 		"name": "/netadm/info",
 		"comment": "Get ems-bus info.",
-		"owner": "emsbus",
+		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:info",
 		"url": "/netadm/info",
@@ -120,6 +176,89 @@
 		"type": "GET",
 		"authorization":"oauth2",
 		"lang" : "erlang"
+	},
+	
+	{
+		"name": "/netadm/config",
+		"comment": "Get config.",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_netadm_service:config",
+		"url": "/netadm/config",
+		"result_cache" : 0,
+		"async": "false",
+		"type": "GET",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+	
+	{
+		"name": "/netadm/datasource/:id",
+		"comment": "Get datasource by id",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_api_query_service:find_by_id",
+		"url": "/netadm/datasource/:id",
+		"type": "GET",
+		"authorization": "basic",
+		"datasource" : {
+			"type" : "mnesia",
+			"table_name" : "service_datasource",
+			"fields" : ["id", "rowid", "type", "driver", "table_name", "fields", "show_remap_fields", 
+						"primary_key", "foreign_key", "foreign_table_name", "csv_delimiter", "sql", "timeout", "max_pool_size"]
+		},
+		"lang" : "erlang"
+	},
+	
+	{
+		"name": "/netadm/datasource",
+		"comment": "Get datasources",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_api_query_service:find",
+		"url": "/netadm/datasource",
+		"type": "GET",
+		"authorization": "basic",
+		"datasource" : {
+			"type" : "mnesia",
+			"table_name" : "service_datasource",
+			"fields" : ["id", "rowid", "type", "driver", "table_name", "fields", "show_remap_fields", 
+						"primary_key", "foreign_key", "foreign_table_name", "csv_delimiter", "sql", "timeout", "max_pool_size"]
+		},
+		"lang" : "erlang",
+		"querystring": [
+				{
+					"name": "filter",
+					"type": "string",
+					"default" : "",
+					"comment": "Filtro principal da pesquisa"
+				},
+				{
+					"name": "fields",
+					"type": "string",
+					"default" : "",
+					"comment": "Campos que devem ser retornados na pesquisa"
+				},
+				{
+					"name": "limit",
+					"type": "int",
+					"default" : "100",
+					"comment": "Quantidade máxima de registros retornados"
+				},
+				{
+					"name": "offset",
+					"type": "int",
+					"default" : "1",
+					"comment": "Offset retornado da consulta"
+				},
+				{
+					"name": "sort",
+					"type": "string",
+					"default" : "",
+					"comment": "Campos que devem ser ordenados"
+				}
+			]	
 	}
+	
 	
 ]

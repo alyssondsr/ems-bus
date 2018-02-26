@@ -10,12 +10,14 @@
 
 -compile({parse_transform, exprecs}).
 
--include("../include/ems_schema.hrl").
+-include("include/ems_schema.hrl").
 
 -export([to_record/2, to_list/1, to_list/2, to_json/1, new/1, new_/1, prop_list_to_json/1]).
 
--export_records([user, user_permission, user_perfil, catalog_schema, schema_type, 
-				 produto, service, service_owner, client]).
+-export_records([user, user_permission, user_perfil, 
+				 user_email, user_dados_funcionais, user_endereco, user_telefone,
+				 catalog_schema, schema_type, produto, service, service_owner, 
+				 client, service_datasource, stat_counter_hist]).
 
 
 % to_record
@@ -48,9 +50,16 @@ to_record(_, _) -> erlang:error(einvalid_to_record).
 to_list(Record) when is_tuple(Record)-> 
 	try
 		{struct, Result} = json_rec:to_json(Record, ?MODULE),
-		lists:reverse(Result)
+		Result2 = [case V of
+						<<"undefined">> -> {K, null};
+						_ -> {K, V} 
+				   end || {K,V} <- Result],
+		Result2
 	catch 
-		_Exception:_Reason -> lists:reverse(to_list_tuple(Record))
+		_Exception:invalid_string -> 
+			ems_logger:warn("ems_schema to_list invalid_string: ~p.", [Record]),
+			[];
+		_Exception:_Reason -> to_list_tuple(Record)
 	end;
 to_list(Type) when is_atom(Type)-> 
 	NewRecord = new(Type),
@@ -65,45 +74,8 @@ to_list(_) -> erlang:error(einvalid_to_list).
 
 
 to_list_tuple(Tuple) ->
-	case size(Tuple) rem 2 == 0 of
-		true ->  
-			T2 = tuple_to_binlist(Tuple),
-			to_list_tuple(T2, []);
-		_ -> erlang:error(einvalid_to_list)
-	end.
-
-
-tuple_to_binlist(T) ->
-	L = tuple_to_list(T),
-	list_to_binlist(L).
-
-list_to_binlist([]) -> [];
-list_to_binlist(<<>>) -> [];
-list_to_binlist(<<V/binary>>) -> [V];
-list_to_binlist([H|T]) -> [item_to_binary(H)|list_to_binlist(T)].
-
-item_to_binary([]) -> <<>>;
-item_to_binary(<<I/binary>>) -> I;
-item_to_binary(T) when is_tuple(T) -> 
-	tuple_to_binlist(T);
-item_to_binary(L) when is_list(L) -> 
-	case io_lib:printable_list(L) of
-		true -> 
-			L2 = [case Ch of 
-					34 -> "\\\""; 
-					_ -> Ch 
-				  end || Ch <- L],
-			iolist_to_binary(L2);
-		false -> list_to_binlist(L)
-	end;
-item_to_binary(I) when is_integer(I) -> I;
-item_to_binary(I) when is_float(I) -> I;
-item_to_binary(I) when is_atom(I) -> 
-	[I2] = io_lib:format("~p", [I]),
-	iolist_to_binary(I2);
-item_to_binary(I) when is_map(I) -> I;
-item_to_binary(I) ->
-	iolist_to_binary(I).
+	T2 = ems_util:tuple_to_binlist(Tuple),
+	to_list_tuple(T2, []).
 
 
 to_list_tuple([], L) ->	L;	
@@ -126,12 +98,18 @@ to_list([H|T], FieldList, Result) ->
 
 
 % to_json
-to_json(Record) when is_tuple(Record)-> 
-	ListTuple = to_list(Record),
+-spec to_json(tuple() | map() | list(map()) | list() | binary()) -> binary().
+to_json(Value) when is_tuple(Value) -> 
+	ListTuple = to_list(Value),
 	iolist_to_binary([<<"{"/utf8>>, to_json_rec(ListTuple, []), <<"}"/utf8>>]);
-to_json(List) when is_list(List) -> 
-	iolist_to_binary([<<"["/utf8>>, to_json_list(List, []), <<"]"/utf8>>]);
-to_json(List) when is_binary(List) -> List.
+to_json(Value) when is_map(Value) -> 
+	ems_util:json_encode(Value);
+to_json([Map|_] = Value) when is_map(Map) -> 
+	ems_util:json_encode(Value);
+to_json(Value) when is_list(Value) -> 
+	iolist_to_binary([<<"["/utf8>>, to_json_list(Value, []), <<"]"/utf8>>]);
+to_json(Value) -> 
+	Value.
 
 	
 to_json_rec([], L) -> lists:reverse(L);
@@ -148,46 +126,37 @@ to_json_list([H|T], L) ->
 	to_json_list(T, [[to_json(H), <<","/utf8>>] | L]).
 
 
-to_value(<<"undefined">>) -> <<"null"/utf8>>;
 to_value(<<>>) -> <<"null"/utf8>>;
 to_value([]) -> <<"null"/utf8>>;
 to_value(null) -> <<"null"/utf8>>;
+to_value(undefined) -> <<"null"/utf8>>;
 to_value("0.0") -> <<"0.0"/utf8>>;
 to_value(true) -> <<"true"/utf8>>;
 to_value(false) -> <<"false"/utf8>>;
+to_value(<<"undefined">>) -> <<"null"/utf8>>;
+to_value("undefined") -> <<"null"/utf8>>;
 to_value(Data = {{_,_,_},{_,_,_}}) -> 
 	ems_util:date_to_string(Data);
 to_value(Value) when is_float(Value) -> list_to_binary(mochinum:digits(Value));
 to_value(Value) when is_integer(Value) -> integer_to_binary(Value);
 to_value(Value) when is_atom(Value) -> 
-	[<<"\""/utf8>>, atom_to_list(Value), <<"\""/utf8>>];
+	[<<"\""/utf8>>, atom_to_binary(Value, utf8), <<"\""/utf8>>];
 to_value(Value) when is_binary(Value) -> 
 	[<<"\""/utf8>>, Value, <<"\""/utf8>>];
 to_value([<<Key/binary>>, <<Value/binary>>]) -> 
 	[<<"{\""/utf8>>, Key, <<"\":\""/utf8>>, Value, <<"\"}"/utf8>>];
 to_value(Value) when is_list(Value) -> 
 	case io_lib:printable_list(Value) of 
-		true ->	json_field_strip_and_escape(ems_util:utf8_list_to_string(Value));
-		_ -> to_json(list_to_tuple(Value))
+		true ->	
+			ems_util:json_field_strip_and_escape(ems_util:utf8_list_to_string(Value));
+		_ -> 
+			to_json(list_to_tuple(Value))
 	end;
 to_value(Value) when is_map(Value) ->
 	ems_util:json_encode(Value);
-to_value(Value) when is_tuple(Value) ->	to_json(Value);
-to_value(Value) -> throw({error, {"Could not serialize the value ", [Value]}}).
-
-
-json_field_strip_and_escape([]) ->	<<"null"/utf8>>;
-json_field_strip_and_escape(<<>>) -> <<"null"/utf8>>;
-json_field_strip_and_escape(Value) -> 
-	case string:strip(Value) of
-		[] -> <<"null"/utf8>>;
-		ValueStrip -> 
-			ValueEscaped = [case Ch of 
-									34 -> "\\\""; 
-									_ -> Ch 
-							end || Ch <- ValueStrip],
-			[<<"\""/utf8>>, ValueEscaped, <<"\""/utf8>>]
-	end.
+to_value(Value) when is_tuple(Value) ->	
+	to_json(Value);
+to_value(_) -> <<"null"/utf8>>.
 
 
 prop_list_to_json(PropList) -> 
@@ -198,23 +167,35 @@ prop_list_to_json(PropList) ->
 new(service) -> #service{};
 new(catalog) -> #service{};
 new(service_owner) -> #service_owner{};
+new(service_datasource) -> #service_datasource{};
 new(catalog_schema) -> #catalog_schema{};
 new(user) -> #user{};
 new(user_permission) -> #user_permission{};
 new(user_perfil) -> #user_perfil{};
+new(user_email) -> #user_email{};
+new(user_endereco) -> #user_endereco{};
+new(user_telefone) -> #user_telefone{};
+new(user_dados_funcionais) -> #user_dados_funcionais{};
 new(schema_type) -> #schema_type{};
 new(produto) -> #produto{};
 new(client) -> #client{};
+new(stat_counter_hist) -> #stat_counter_hist{};
 new(_) -> erlang:error(einvalid_type).
 
 new_(service) -> #service{_ = '_'};
 new_(catalog) -> #service{_ = '_'};
 new_(service_owner) -> #service_owner{_ = '_'};
+new_(service_datasource) -> #service_datasource{_ = '_'};
 new_(catalog_schema) -> #catalog_schema{_ = '_'};
 new_(user) -> #user{_ = '_'};
 new_(user_permission) -> #user_permission{_ = '_'};
+new_(user_email) -> #user_email{_ = '_'};
+new_(user_endereco) -> #user_endereco{_ = '_'};
+new_(user_telefone) -> #user_telefone{_ = '_'};
+new_(user_dados_funcionais) -> #user_dados_funcionais{_ = '_'};
 new_(user_perfil) -> #user_perfil{_ = '_'};
 new_(client) -> #client{_ = '_'};
+new_(stat_counter_hist) -> #stat_counter_hist{_ = '_'};
 new_(_) -> erlang:error(einvalid_type).
   
 	

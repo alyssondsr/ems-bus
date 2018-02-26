@@ -10,64 +10,75 @@
 
 -export([generate_dynamic_query/6, generate_dynamic_query/3]).
 
--include("../../include/ems_config.hrl").
--include("../../include/ems_schema.hrl").
+-include("include/ems_config.hrl").
+-include("include/ems_schema.hrl").
 
 
-generate_dynamic_query(FilterJson, Fields, _Datasource, Limit, Offset, _Sort) ->
-	FieldList = parse_fields(Fields),
-	FilterList = parse_filter(FilterJson),
+generate_dynamic_query(FilterJson, Fields, Datasource, Limit, Offset, _Sort) ->
+	FieldList = parse_fields(Fields, Datasource),
+	FilterList = parse_filter(FilterJson, Datasource),
 	%SortSmnt = parse_sort(Sort),
 	LimitSmnt = parse_limit(Limit, Offset),
 	{ok, {FieldList, FilterList, LimitSmnt}}.
 
-generate_dynamic_query(_Id, Fields, _Datasource) ->
-	FieldList = parse_fields(Fields),
+generate_dynamic_query(_Id, Fields, Datasource) ->
+	FieldList = parse_fields(Fields, Datasource),
 	{ok, FieldList}.
 
    
-parse_fields([]) -> [];
-parse_fields(Fields) -> 
+parse_fields([], #service_datasource{fields = TblFields}) -> TblFields;
+parse_fields(Fields, #service_datasource{fields = TblFields, remap_fields = RemapFields}) -> 
 	case string:tokens(string:strip(Fields), ",") of
-		[] -> erlang:error(einvalid_fields);
-		Fields2 -> string:join(Fields2, ",")
+		[] -> TblFields;
+		Fields2 -> 
+			case RemapFields == undefined of
+				true -> Fields2;
+				false -> [binary_to_list(maps:get(F, RemapFields, F)) || F <- ems_util:list_to_binlist(Fields2)]
+			end
 	end.
 
-parse_filter(<<>>) -> [];
-parse_filter(Filter) ->    
+parse_filter(<<>>, _) -> [];
+parse_filter(Filter, Datasource) ->    
     case ems_util:json_decode(Filter) of
-		{ok, Filter2} -> parse_filter(Filter2, []);
-		_ -> erlang:error(einvalid_filter)
+		{ok, Filter2} -> 
+			parse_filter(Filter2, Datasource, []);
+		_ -> 
+			erlang:error(einvalid_filter)
 	end.
 
 
-parse_filter([], []) -> [];
-parse_filter([], Filter) -> lists:reverse(Filter);
-parse_filter([H|T], Filter) ->
-	{Param, Op, Value} = parse_condition(H),
-	parse_filter(T, [{Param, Op, Value} | Filter]).
+parse_filter([], _, []) -> [];
+parse_filter([], _, Filter) -> lists:reverse(Filter);
+parse_filter([H|T], Datasource, Filter) ->
+	{Param, Op, Value} = parse_condition(H, Datasource),
+	parse_filter(T, Datasource, [{Param, Op, Value} | Filter]).
 
 	
-parse_condition({<<Param/binary>>, Value}) when is_integer(Value) -> 
+parse_condition({<<Param/binary>>, Value}, Datasource) when is_integer(Value) -> 
 	Param2 = binary_to_list(Param), 
-	parse_condition(Param2, Value, sql_integer);
-parse_condition({<<Param/binary>>, Value}) when is_boolean(Value) -> 
+	parse_condition(Param2, Value, sql_integer, Datasource);
+parse_condition({<<Param/binary>>, Value}, Datasource) when is_boolean(Value) -> 
 	Param2 = binary_to_list(Param), 
-	parse_condition(Param2, Value, sql_boolean);
-parse_condition({<<Param/binary>>, Value}) -> 
+	parse_condition(Param2, Value, sql_boolean, Datasource);
+parse_condition({<<Param/binary>>, Value}, Datasource) -> 
 	Param2 = binary_to_list(Param), 
 	Value2 = binary_to_list(Value),
-	parse_condition(Param2, Value2, sql_varchar).
+	parse_condition(Param2, Value2, sql_varchar, Datasource).
 	
-parse_condition(Param, Value, _DataType) -> 
-	{Param2, Op} = parse_name_and_operator(Param),
+parse_condition(Param, Value, _DataType, Datasource) -> 
+	{Param2, Op} = parse_name_and_operator(Param, Datasource),
 	{Param2, Op, Value}.	
 
-
-parse_name_and_operator(Param) ->
+parse_name_and_operator(Param, #service_datasource{remap_fields = RemapFields}) ->
 	case string:str(Param, "__") of
 		Idx when Idx > 1 ->
-			Name = string:sub_string(Param, 1, Idx-1),
+			Name0 = string:sub_string(Param, 1, Idx-1),
+			case RemapFields == undefined of
+				true -> Name = Name0;
+				false -> 
+					NameBin = list_to_binary(Name0),
+					Name = binary_to_list(maps:get(NameBin, RemapFields, NameBin))
+			end,
 			Op = string:sub_string(Param, Idx+2),
 			case lists:member(Op, ["e", "ne", "gt", "gte", "lt", "lte"]) of
 				true -> 
@@ -75,7 +86,15 @@ parse_name_and_operator(Param) ->
 					{Name, Op2};
 				_ -> throw({einvalid_condition, Param})
 			end;
-		0 -> {Param, "=="};
+		0 -> 
+			case RemapFields == undefined of
+				true -> 
+					{Param, "=="};
+				false -> 
+					NameBin = list_to_binary(Param),
+					Param2 = binary_to_list(maps:get(NameBin, RemapFields, NameBin)),
+					{Param2, "=="}
+			end;
 		_ -> throw({einvalid_condition, Param})
 	end.
 

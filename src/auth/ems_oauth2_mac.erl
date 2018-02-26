@@ -1,4 +1,4 @@
--module(oauth2ems_mac).
+-module(ems_oauth2_mac).
 
 -export([issue_token/1]).
 -export([verify_token/1]).

@@ -1,4 +1,4 @@
--module(oauth2ems_backend).
+-module(ems_oauth2_backend).
 
 -behavior(oauth2_backend).
 
@@ -53,11 +53,12 @@ start() ->
     application:set_env(oauth2, backend, oauth2ems_backend),
     ems_user:insert(#user{login= <<"geral">>,password= ems_util:criptografia_sha1("123456")}),
     ems_user:insert(#user{login= <<"alyssondsr">>,password=ems_util:criptografia_sha1("123456")}),
-    ems_client:insert(#client{codigo= <<"123">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"http://127.0.0.1:2301/callback">>, scope= <<"email">>}),
-    ems_client:insert(#client{codigo= <<"q1w2e3">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.43:2344/callback">>, scope= <<"email">>}),
-    ems_client:insert(#client{codigo= <<"key">>,secret=ems_util:criptografia_sha1("secret"), redirect_uri= <<"https://127.0.0.1:2344/callback1">>, scope= <<"email">>}),
-    ems_client:insert(#client{codigo= <<"teste">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.34:2344/callback">>, scope= <<"email">>}),
-    ems_client:insert(#client{codigo= <<"98755">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://www.getpostman.com/oauth2/callback">>, scope= <<"email">>}),
+    ems_client:insert(#client{name= <<"123">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"http://127.0.0.1:2301/callback">>, scope= <<"email">>}),
+    ems_client:insert(#client{name= <<"q1w2e3">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.43:2344/callback">>, scope= <<"email">>}),
+    ems_client:insert(#client{name= <<"key">>,secret=ems_util:criptografia_sha1("secret"), redirect_uri= <<"https://127.0.0.1:2344/callback1">>, scope= <<"email">>}),
+    ems_client:insert(#client{name= <<"teste">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.34:2344/callback">>, scope= <<"email">>}),
+    ems_client:insert(#client{name= <<"98755">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://www.getpostman.com/oauth2/callback">>, scope= <<"email">>}),
+
     lists:foreach(fun(Table) ->
 			ets:new(Table, [named_table, public])
 		end,
@@ -98,15 +99,16 @@ authenticate_user({Login, Password}, _) ->
 %>>>>>>> upstream/master
 		_ -> {error, unauthorized_user}
 	end.
+	
 authenticate_client({ClientId, Secret},_) ->
-    case ems_client:find_by_codigo_and_secret(ClientId, Secret) of
+    case ems_client:find_by_id_and_secret(ClientId, Secret) of
 		{ok, Client} ->	 {ok, {<<>>, Client}};
 		_ -> {error, unauthorized_client}		
     end.
     
 get_client_identity(ClientId, _) ->
-    case ems_client:find_by_codigo(ClientId) of
-        {ok, Client} -> {ok, {[],Client}};
+    case ems_client:find_by_id(ClientId) of
+        {ok, Client} -> {ok, {[], Client}};
         _ -> {error, unauthorized_client}
     end.
         
@@ -128,13 +130,13 @@ resolve_access_code(AccessCode, _) ->
 
 resolve_refresh_token(RefreshToken, _AppContext) ->
     case get(?REFRESH_TOKEN_TABLE, RefreshToken) of
-       {ok,Value} -> {ok,{[],Value}};
+       {ok,Value} -> {ok,{[], Value}};
         _Error -> {error, invalid_token} 
     end.
 
 resolve_access_token(AccessToken, _) ->
     case get(?ACCESS_TOKEN_TABLE, AccessToken) of
-       {ok,Value} -> {ok,{[],Value}};
+       {ok,Value} -> {ok,{[], Value}};
         _Error -> {error, invalid_token} 
     end.
 
@@ -150,17 +152,24 @@ revoke_refresh_token(_RefreshToken, _) ->
     {ok, []}.
 
 get_redirection_uri(ClientId, _) ->
-    case get_client_identity(ClientId,[])  of
-        {ok, #client{redirect_uri = RedirectUri}} ->
-            {ok, RedirectUri};
+    case get_client_identity(ClientId, [])  of
+        {ok, #client{redirect_uri = RedirectUri}} -> {ok, RedirectUri};
         _ -> {error, einvalid_uri} 
     end.
 
-verify_redirection_uri(ClientId, ClientUri, _) when is_binary(ClientId) ->
-    case get_client_identity(ClientId,[]) of
-        {ok,{_, #client{redirect_uri = RedirUri}}} -> 
+
+verify_redirection_uri(#client{redirect_uri = RedirUri}, ClientUri, _) ->
+    case ClientUri =:= RedirUri of
+		true -> 
+			{ok, []};
+		_Error -> 
+			{error, unauthorized_client}
+    end;
+verify_redirection_uri(ClientId, ClientUri, _) ->
+    case get_client_identity(ClientId, []) of
+        {ok, {_, #client{redirect_uri = RedirUri}}} -> 
 			case ClientUri =:= RedirUri of
-				true ->	{ok,[]};
+				true ->	{ok, []};
 				_ -> {error, unauthorized_client}
 			end;
         Error -> Error
@@ -171,22 +180,22 @@ verify_redirection_uri(#client{redirect_uri = RedirUri}, ClientUri, _) ->
 		true -> {ok,[]};
 		_Error -> {error, error_uri}
     end.
-    
 
-verify_client_scope(#client{codigo = ClientID},Scope, _) ->
-	case ems_client:find_by_codigo(ClientID) of
+verify_client_scope(#client{id = ClientID}, Scope, _) ->
+	case ems_client:find_by_id(ClientID) of
         {ok, #client{scope = Scope0}} ->     
 			case Scope =:= Scope0 of
-				true -> {ok, {[],Scope0}};
+				true -> 
+					{ok, {[],Scope0}};
 				_ -> {error, unauthorized_client}
 			end;
         _ -> {error, invalid_scope}
     end.
 verify_resowner_scope(_ResOwner, Scope, _) ->
-    {ok, {[],Scope}}.
+    {ok, {[], Scope}}.
 
 verify_scope(_RegScope, Scope , _) ->
-    {ok, {[],Scope}}.
+    {ok, {[], Scope}}.
 
     
 % função criada pois a biblioteca OAuth2 não trata refresh_tokens
@@ -211,7 +220,6 @@ authorize_refresh_token(Client, RefreshToken, Scope) ->
     end.
 
 
-    
 
 %%%===================================================================
 %%% Funções internas
@@ -233,7 +241,6 @@ get(O, K, _)  ->
 get_(O, K) ->
     {ok, V} = get(O, K, []),
     V.
-
 
 put(Table, Key, Value) ->
     ets:insert(Table, {Key, Value}),

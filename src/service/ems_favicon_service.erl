@@ -29,19 +29,21 @@ execute(Request = #request{timestamp = Timestamp})	->
 				{ok, FileData} -> 		
 					{ok, Request#request{code = 200,
 										 reason = ok,
+										 content_type = <<"image/x-icon">>,
 										 response_data = FileData,
 										 response_header = generate_header(ETag, LastModified, Expires)}};
 				{error, Reason} = Err -> 
 					{error, Request#request{code = case Reason of enoent -> 404; _ -> 400 end, 
 										    reason = Reason,
+										    content_type = ?CONTENT_TYPE_JSON,
 											response_data = ems_schema:to_json(Err), 
 											response_header = error_http_header()}
 					 }
 			end
 	end.
 
-file_info(FileName) ->
-	case file:read_file_info(FileName, [{time, universal}]) of
+file_info(Filename) ->
+	case file:read_file_info(Filename, [{time, universal}]) of
 		{ok,{file_info, FSize, _Type, _Access, _ATime, MTime, _CTime, _Mode,_,_,_,_,_,_}} = 
 			Result -> Result,
 			{FSize, MTime};
@@ -52,7 +54,6 @@ generate_etag(FSize, MTime) -> integer_to_binary(erlang:phash2({FSize, MTime}, 1
 
 generate_header(ETag, LastModified, Expires) ->
 	#{
-		<<"content-type">> => <<"image/x-icon">>,
 		<<"cache-control">> => <<"max-age=604800, public">>,
 		<<"etag">> => ETag,
 		<<"last-modified">> => LastModified,

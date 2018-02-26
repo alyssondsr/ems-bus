@@ -1,0 +1,140 @@
+[
+	{
+		"name": "/auth/user/:id",
+		"comment": "Get user by id",
+		"owner": "auth_user",
+		"version": "1.0.0",
+		"service" : "ems_api_query_service:find_by_id",
+		"url": "/auth/user/:id",
+		"type": "GET",
+		"authorization": "basic",
+		"datasource" : {
+			"type" : "mnesia",
+			"table_name" : ["user_db", "user_aluno_ativo_db", "user_aluno_inativo_db", "user_fs"],
+			"fields" : ["id", "codigo", "login", "name", "cpf", "email", "type", "subtype", "active", 
+						"endereco", "complemento_endereco", "bairro", "cidade", "uf", "cep", "rg", 
+						"data_nascimento", "sexo", "telefone", "celular", "ddd", "nome_pai", 
+						"nome_mae", "nacionalidade", "matricula"]
+		},
+		"schema_in" : "user",
+		"schema_out" : "user",
+		"lang" : "erlang",
+		"querystring": [
+				{
+					"name": "fields",
+					"type": "string",
+					"default" : "",
+					"comment": "Campos que devem ser retornados na pesquisa"
+				}
+			]	
+	},
+
+	{	
+		"name": "/auth/user",
+		"comment": "List all users",
+		"owner": "auth_user",
+		"service" : "ems_api_query_service:find",
+		"url": "/auth/user",
+		"type": "GET",
+		"authorization": "basic",
+		"lang" : "erlang",
+		"datasource" : {
+			"type" : "mnesia",
+			"table_name" : ["user_db", "user_aluno_ativo_db", "user_aluno_inativo_db", "user_fs"],
+			"fields" : ["id", "codigo", "login", "name", "cpf", "email", "type", "subtype", "active", 
+						"endereco", "complemento_endereco", "bairro", "cidade", "uf", "cep", "rg", 
+						"data_nascimento", "sexo", "telefone", "celular", "ddd", "nome_pai", 
+						"nome_mae", "nacionalidade", "matricula"]
+		},
+		"schema_in" : "user",
+		"schema_out" : "user",
+		"querystring": [
+				{
+					"name": "filter",
+					"type": "string",
+					"default" : "",
+					"comment": "Filtro principal da pesquisa"
+				},
+				{
+					"name": "fields",
+					"type": "string",
+					"default" : "",
+					"comment": "Campos que devem ser retornados na pesquisa"
+				},
+				{
+					"name": "limit",
+					"type": "int",
+					"default" : "100",
+					"comment": "Quantidade máxima de registros retornados"
+				},
+				{
+					"name": "offset",
+					"type": "int",
+					"default" : "1",
+					"comment": "Offset retornado da consulta"
+				},
+				{
+					"name": "sort",
+					"type": "string",
+					"default" : "",
+					"comment": "Campos que devem ser ordenados"
+				}
+			]	
+	},
+	
+	{	
+		"name": "/auth/user/loader/sync",
+		"comment": "Syncronize user database",
+		"owner": "auth_user",
+		"service" : "user_service:loader_sync",
+		"url": "/auth/user/loader/sync",
+		"type": "POST",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+	
+	{	
+		"name": "/auth/user/loader/last_update",
+		"comment": "Get last update of user database",
+		"owner": "auth_user",
+		"service" : "user_service:loader_last_update",
+		"url": "/auth/user/loader/last_update",
+		"type": "GET",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+	
+	{	
+		"name": "/auth/user/loader/pause",
+		"comment": "Stop user database synchronization",
+		"owner": "auth_user",
+		"service" : "user_service:loader_pause",
+		"url": "/auth/user/loader/pause",
+		"type": "POST",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+	
+	{	
+		"name": "/auth/user/loader/resume",
+		"comment": "Resume user database synchronization",
+		"owner": "auth_user",
+		"service" : "user_service:loader_resume",
+		"url": "/auth/user/loader/resume",
+		"type": "POST",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+	
+	{	
+		"name": "/auth/user/loader/size_table",
+		"comment": "Get user database size",
+		"owner": "auth_user",
+		"service" : "user_service:loader_size_table",
+		"url": "/auth/user/loader/size_table",
+		"type": "GET",
+		"authorization": "basic",
+		"lang" : "erlang"
+	}
+	
+]

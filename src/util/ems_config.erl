@@ -111,20 +111,20 @@ code_change(_OldVsn, State, _Extra) ->
 get_config_data() ->
 	case init:get_argument(home) of
 		{ok, [[HomePath]]} -> 
-			FileName = lists:concat([HomePath, "/.erlangms/", node(), ".conf"]),
-			case file:read_file(FileName) of 
+			Filename = lists:concat([HomePath, "/.erlangms/", node(), ".conf"]),
+			case file:read_file(Filename) of 
 				{ok, Arq} -> 
-					?DEBUG("ems_config checking if node file configuration ~p exist: Ok", [FileName]),
-					{ok, Arq, FileName};
+					?DEBUG("ems_config checking if node file configuration ~p exist: Ok", [Filename]),
+					{ok, Arq, Filename};
 				_Error -> 
-					?DEBUG("ems_config checking if node file configuration ~p exist: No", [FileName]),
-					FileName2 = lists:concat([HomePath, "/.erlangms/emsbus.conf"]),
-					case file:read_file(FileName2) of 
+					?DEBUG("ems_config checking if node file configuration ~p exist: No", [Filename]),
+					Filename2 = lists:concat([HomePath, "/.erlangms/emsbus.conf"]),
+					case file:read_file(Filename2) of 
 						{ok, Arq2} -> 
-							?DEBUG("ems_config checking if file configuration ~p exist: Ok", [FileName2]),
-							{ok, Arq2, FileName2};
+							?DEBUG("ems_config checking if file configuration ~p exist: Ok", [Filename2]),
+							{ok, Arq2, Filename2};
 						_Error -> 
-							?DEBUG("ems_config checking if file configuration ~p exist: No", [FileName2]),
+							?DEBUG("ems_config checking if file configuration ~p exist: No", [Filename2]),
 							case file:read_file(?CONF_FILE_PATH) of 
 								{ok, Arq3} -> 
 									?DEBUG("ems_config checking if global file configuration ~p exist: Ok", [?CONF_FILE_PATH]),
@@ -146,29 +146,29 @@ get_config_data() ->
 			end
 	end.
 
-print_config_settings(Json = #config{ems_debug = true, config_file = FileName}) ->
-	ems_logger:format_alert("\nems_config loading configuration file ~p...\n", [FileName]),
+print_config_settings(Json = #config{ems_debug = true, config_file = Filename}) ->
+	ems_logger:format_alert("\nems_config loading configuration file ~p...\n", [Filename]),
 	ems_logger:format_debug("~p\n", [Json]);
-print_config_settings(#config{ems_debug = false, config_file = FileName}) ->
-	ems_logger:format_alert("\nems_config loading configuration file ~p...\n", [FileName]).
+print_config_settings(#config{ems_debug = false, config_file = Filename}) ->
+	ems_logger:format_alert("\nems_config loading configuration file ~p...\n", [Filename]).
 
 % Load the configuration file
 load_config() ->
 	case get_config_data() of
-		{ok, ConfigData, FileName} ->
+		{ok, ConfigData, Filename} ->
 			case ems_util:json_decode_as_map(ConfigData) of
 				{ok, Json} -> 
 					try
-						Result = parse_config(Json, FileName),
+						Result = parse_config(Json, Filename),
 						print_config_settings(Result),
 						Result
 					catch 
 						_Exception:Reason ->
-							ems_logger:format_warn("\nems_config parse invalid configuration file ~p. Reason: ~p. Running with default settings.\n", [FileName, Reason]),
+							ems_logger:format_warn("\nems_config parse invalid configuration file ~p. Reason: ~p. Running with default settings.\n", [Filename, Reason]),
 							get_default_config()
 					end;
 				_Error -> 
-					ems_logger:format_warn("\nems_config parse invalid configuration file ~p. Running with default settings.\n", [FileName]),
+					ems_logger:format_warn("\nems_config parse invalid configuration file ~p. Running with default settings.\n", [Filename]),
 					get_default_config()
 			end;
 		{error, enofile_config} ->
@@ -180,11 +180,12 @@ load_config() ->
 -spec parse_cat_path_search(map()) -> list().
 parse_cat_path_search(Json) ->
 	CatPathSearch = maps:get(<<"catalog_path">>, Json, #{}),
-	case maps:is_key(<<"ems-bus">>, CatPathSearch) of
-		true -> maps:to_list(CatPathSearch);
-		false -> [{<<"ems-bus">>, ?CATALOGO_ESB_PATH} | maps:to_list(CatPathSearch)]
-	end.
-	
+	CatPathSearch2 = case maps:is_key(<<"ems-bus">>, CatPathSearch) of
+						true -> maps:to_list(CatPathSearch);
+						false -> maps:to_list(CatPathSearch) 
+					end,
+	[{K, binary_to_list(V)} || {K,V} <- CatPathSearch2] ++ [{<<"ems-bus">>, ?CATALOGO_ESB_PATH}].
+
 
 -spec parse_static_file_path(map()) -> list().
 parse_static_file_path(Json) ->
@@ -211,41 +212,68 @@ parse_tcp_allowed_address(undefined) -> all;
 parse_tcp_allowed_address([<<"*.*.*.*">>]) -> all;
 parse_tcp_allowed_address(V) -> V.
 
-
+-spec parse_config(map(), string()) -> #config{}.
 parse_config(Json, NomeArqConfig) ->
 	{ok, Hostname} = inet:gethostname(),
 	Hostname2 = list_to_binary(Hostname),
-	#config{ cat_host_alias				= maps:get(<<"host_alias">>, Json, #{<<"local">> => Hostname2}),
-			 cat_host_search			= maps:get(<<"host_search">>, Json, <<>>),							
-			 cat_node_search			= maps:get(<<"node_search">>, Json, <<>>),
-			 cat_path_search			= parse_cat_path_search(Json),
-			 static_file_path			= parse_static_file_path(Json),
-			 cat_disable_services		= maps:get(<<"disable_services">>, Json, []),
-			 cat_enable_services		= maps:get(<<"enable_services">>, Json, []),
-			 ems_hostname 				= Hostname2,
-			 ems_host	 				= list_to_atom(Hostname),
-			 ems_file_dest				= NomeArqConfig,
-			 ems_debug					= parse_bool(maps:get(<<"debug">>, Json, false)),
-			 ems_result_cache			= maps:get(<<"result_cache">>, Json, ?TIMEOUT_DISPATCHER_CACHE),
-			 ems_datasources			= parse_datasources(Json),
-			 tcp_allowed_address		= parse_tcp_allowed_address(maps:get(<<"tcp_allowed_address">>, Json, all)),
-			 tcp_listen_address			= maps:get(<<"tcp_listen_address">>, Json, [<<"0.0.0.0">>]),
-			 authorization			    = ems_http_util:parse_authorization_type(maps:get(<<"authorization">>, Json, ?AUTHORIZATION_TYPE_DEFAULT)),
-			 oauth2_with_check_constraint = parse_bool(maps:get(<<"oauth2_with_check_constraint">>, Json, false)),
-			 config_file			    = NomeArqConfig,
-			 params						= Json
+	TcpListenAddress = maps:get(<<"tcp_listen_address">>, Json, [<<"0.0.0.0">>]),
+	TcpListenAddress_t = ems_util:parse_tcp_listen_address(TcpListenAddress),
+ 	{TcpListenMainIp, TcpListenMainIp_t} = get_tcp_listen_main_ip(TcpListenAddress_t),
+	#config{ cat_host_alias	= maps:get(<<"host_alias">>, Json, #{<<"local">> => Hostname2}),
+			 cat_host_search = maps:get(<<"host_search">>, Json, <<>>),							
+			 cat_node_search = maps:get(<<"node_search">>, Json, <<>>),
+			 cat_path_search = parse_cat_path_search(Json),
+			 static_file_path = parse_static_file_path(Json),
+			 cat_disable_services = maps:get(<<"disable_services">>, Json, []),
+			 cat_enable_services = maps:get(<<"enable_services">>, Json, []),
+			 cat_disable_services_owner = maps:get(<<"disable_services_owner">>, Json, []),
+			 cat_enable_services_owner = maps:get(<<"enable_services_owner">>, Json, []),
+			 ems_hostname = Hostname2,
+			 ems_host = list_to_atom(Hostname),
+			 ems_file_dest = NomeArqConfig,
+			 ems_debug = ems_util:parse_bool(maps:get(<<"debug">>, Json, false)),
+			 ems_result_cache = ems_util:parse_result_cache(maps:get(<<"result_cache">>, Json, ?TIMEOUT_DISPATCHER_CACHE)),
+			 ems_datasources = parse_datasources(Json),
+			 tcp_listen_address	= TcpListenAddress,
+			 tcp_listen_address_t = TcpListenAddress_t,
+			 tcp_listen_main_ip = TcpListenMainIp,
+			 tcp_listen_main_ip_t = TcpListenMainIp_t,
+			 tcp_allowed_address = parse_tcp_allowed_address(maps:get(<<"tcp_allowed_address">>, Json, all)),
+			 http_max_content_length = ems_util:parse_range(maps:get(<<"http_max_content_length">>, Json, ?HTTP_MAX_CONTENT_LENGTH), 0, ?HTTP_MAX_CONTENT_LENGTH_BY_SERVICE),
+			 authorization = ems_util:parse_authorization_type(maps:get(<<"authorization">>, Json, ?AUTHORIZATION_TYPE_DEFAULT)),
+			 oauth2_with_check_constraint = ems_util:parse_bool(maps:get(<<"oauth2_with_check_constraint">>, Json, false)),
+			 config_file = NomeArqConfig,
+			 params = Json,
+			 client_path_search = maps:get(<<"client_path_search">>, Json, ?CLIENT_PATH),
+			 user_path_search = maps:get(<<"user_path_search">>, Json, ?USER_PATH),
+			 user_dados_funcionais_path_search = maps:get(<<"user_path_search">>, Json, ?USER_DADOS_FUNCIONAIS_PATH),
+			 user_perfil_path_search = maps:get(<<"user_perfil_path_search">>, Json, ?USER_PERFIL_PATH),
+			 user_permission_path_search = maps:get(<<"user_permission_path_search">>, Json, ?USER_PERMISSION_PATH),
+			 user_endereco_path_search = maps:get(<<"user_endereco_path_search">>, Json, ?USER_ENDERECO_PATH),
+			 user_telefone_path_search = maps:get(<<"user_telefone_path_search">>, Json, ?USER_TELEFONE_PATH),
+			 user_email_path_search	= maps:get(<<"user_email_path_search">>, Json, ?USER_EMAIL_PATH),
+ 			 ssl_cacertfile = maps:get(<<"ssl_cacertfile">>, Json, undefined),
+			 ssl_certfile = maps:get(<<"ssl_certfile">>, Json, undefined),
+			 ssl_keyfile = maps:get(<<"ssl_keyfile">>, Json, undefined),
+			 sufixo_email_institucional = binary_to_list(maps:get(<<"sufixo_email_institucional">>, Json, <<"">>))
 		}.
 
 % It generates a default configuration if there is no configuration file
+-spec get_default_config() -> #config{}.
 get_default_config() ->
 	{ok, Hostname} = inet:gethostname(),
 	Hostname2 = list_to_binary(Hostname),
+	TcpListenAddress = [<<"0.0.0.0">>],
+	TcpListenAddress_t = ems_util:parse_tcp_listen_address(TcpListenAddress),
+ 	{TcpListenMainIp, TcpListenMainIp_t} = get_tcp_listen_main_ip(TcpListenAddress_t),
 	#config{ cat_host_alias				= #{<<"local">> => Hostname2},
 			 cat_host_search			= <<>>,							
 			 cat_node_search			= <<>>,
 			 cat_path_search			= [{<<"ems-bus">>, ?CATALOGO_ESB_PATH}],
 			 cat_disable_services		= [],
 			 cat_enable_services		= [],
+			 cat_disable_services_owner	= [],
+			 cat_enable_services_owner	= [],
 			 static_file_path			= [],
 			 ems_hostname 				= Hostname2,
 			 ems_host	 				= list_to_atom(Hostname),
@@ -253,17 +281,36 @@ get_default_config() ->
 			 ems_debug					= false,
 			 ems_result_cache			= ?TIMEOUT_DISPATCHER_CACHE,
 			 ems_datasources			= #{},
+			 tcp_listen_address			= TcpListenAddress,
+			 tcp_listen_address_t		= TcpListenAddress_t,
+			 tcp_listen_main_ip 		= TcpListenMainIp,
+			 tcp_listen_main_ip_t 		= TcpListenMainIp_t,
 			 tcp_allowed_address		= all,
-			 tcp_listen_address			= [<<"0.0.0.0">>],
-			 authorization				= <<"oauth2">>,
+			 authorization				= oauth2,
 			 oauth2_with_check_constraint = false,
 			 config_file			    = undefined,
-			 params						= #{}
+			 params						= #{},
+			 client_path_search			= ?CLIENT_PATH,
+			 user_path_search			= ?USER_PATH,
+			 user_dados_funcionais_path_search = ?USER_DADOS_FUNCIONAIS_PATH,
+			 user_perfil_path_search	= ?USER_PERFIL_PATH,
+			 user_permission_path_search	= ?USER_PERMISSION_PATH,
+			 user_email_path_search	= ?USER_EMAIL_PATH,
+			 user_endereco_path_search	= ?USER_ENDERECO_PATH,
+			 user_telefone_path_search	= ?USER_TELEFONE_PATH,
+			 http_max_content_length = ?HTTP_MAX_CONTENT_LENGTH,
+			 ssl_cacertfile = undefined,
+			 ssl_certfile = undefined,
+			 ssl_keyfile = undefined,
+			 sufixo_email_institucional = ""
 		}.
 
-parse_bool(<<"true">>) -> true;
-parse_bool(<<"false">>) -> false;
-parse_bool(true) -> true;
-parse_bool(false) -> false;
-parse_bool(_) -> false.
+-spec get_tcp_listen_main_ip(list(tuple())) -> tuple().
+get_tcp_listen_main_ip(TcpListenAddress_t) when length(TcpListenAddress_t) > 0 -> 
+	Ip = lists:last(TcpListenAddress_t),
+	{list_to_binary(inet:ntoa(Ip)), Ip};
+get_tcp_listen_main_ip(_) -> {undefined, undefined}.
+
+
+	
 

@@ -12,17 +12,18 @@
 -record(counter, {key :: atom(), 
      			  index :: non_neg_integer()}).
 
--record(user, {id :: non_neg_integer(), 					%% identifica o registro
-			   codigo :: non_neg_integer(),					%% identifica uma pessoa (pode haver duplicado pois a pessoa pode ter vários e-mails e login)
-			   login :: binary(),
-			   name :: binary(), 
+-record(user, {id :: non_neg_integer(), 					%% identificador do usuário (required) (Na UnB é o campo Tb_Usuario.UsuId)
+			   codigo :: non_neg_integer(),					%% código da pessoa se o usuário possui dados pessoais em outra tabela externa. (Na UnB é o campo Tb_Pessoa.PesCodigoPessoa)
+			   login :: binary(),							%% login do usuário (required)
+			   name :: binary(), 							%% nome do usuário (required)
 			   cpf :: binary(),
-			   email :: binary(), 
-			   password :: binary(),
-			   type :: non_neg_integer(),					%% 0 = pessoa física  1 = pessoa jurídica  2 = aluno
+			   email :: binary(), 							
+			   password :: binary(),						%% password (required)
+			   type = 0 :: non_neg_integer(),				%% 0 = interno  1 = tecnico  2 = docente  3 = discente
+			   subtype = 0 :: non_neg_integer(),			%% se aluno,  1 = extensao 2 = graduacao 3 = aperfeicoamento 4 = especializacao 5 = mestrado 6 = doutorado 7 = pos-doutorado 8 = residencia 9 = aluno especial - graduacao 10 = aluno especial - pos-graduacao 11 = estagio em pos-graduacao
 			   passwd_crypto :: binary(),					%% Algoritmo criptografia: SHA1
-			   type_email :: non_neg_integer(),				%% 1 = Institucional  2 = Pessoal
-			   active :: boolean(),
+			   type_email :: non_neg_integer(),				%% undefined = desconhecido  1 = Institucional  2 = Pessoal
+			   active = true :: boolean(),
 			   endereco :: binary(),
 			   complemento_endereco :: binary(),
 			   bairro :: binary(),
@@ -35,20 +36,82 @@
 			   telefone :: binary(),
 			   celular :: binary(),
 			   ddd :: binary(),
-			   matricula :: non_neg_integer(),
-			   lotacao :: binary(),
-			   lotacao_sigla :: binary(),
-			   lotacao_centro :: binary(),
-			   lotacao_codigo_funcao :: non_neg_integer(),
-			   lotacao_funcao :: binary(),
-			   lotacao_orgao :: binary(),
-			   lotacao_codigo_cargo :: non_neg_integer(),
-			   lotacao_cargo :: binary(),
-			   ctrl_insert,
-			   ctrl_update 
+			   nome_pai :: binary(),
+			   nome_mae :: binary(),
+			   nacionalidade :: non_neg_integer(),
+			   matricula :: non_neg_integer(),				%% se o usuário tem alguma matrícula proveniente de dados funcionais
+			   remap_user_id :: non_neg_integer(),
+			   ctrl_path :: string(),
+			   ctrl_file :: string(),
+			   ctrl_insert,									%% Data que o serviço foi inserido no banco mnesia
+			   ctrl_update, 								%% Data que o serviço foi atualiado no banco mnesia			
+			   ctrl_modified,								%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+			   ctrl_hash									%% Hash gerado para poder comparar dois registros
 		}).
 		
--record(user_permission, {id :: non_neg_integer(),	
+-record(user_dados_funcionais, {
+			   id :: non_neg_integer(), 					%% %% identificador dos dados funcionais (Na UnB é o campo Tb_Usuario.UsuId)
+			   type :: non_neg_integer(),					%% 0 = interno  1 = tecnico  2 = docente  3 = discente
+			   subtype :: non_neg_integer(),				%% se aluno,  1 = extensao 2 = graduacao 3 = aperfeicoamento 4 = especializacao 5 = mestrado 6 = doutorado 7 = pos-doutorado 8 = residencia 9 = aluno especial - graduacao 10 = aluno especial - pos-graduacao 11 = estagio em pos-graduacao
+			   active :: boolean(),
+			   matricula :: non_neg_integer(),				%% matrícula proveniente de dados funcionais
+			   ctrl_path :: string(),
+			   ctrl_file :: string(),
+			   ctrl_insert,									%% Data que o serviço foi inserido no banco mnesia
+			   ctrl_update, 								%% Data que o serviço foi atualiado no banco mnesia			
+			   ctrl_modified,								%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+			   ctrl_hash									%% Hash gerado para poder comparar dois registros
+		}).
+
+-record(user_email, {
+			   id :: non_neg_integer(), 					%% identificador dos email (Na UnB é o campo TB_Email.EmaCodigo)
+			   codigo :: non_neg_integer(),					%% código da pessoa. (Na UnB é o campo Tb_Pessoa.PesCodigoPessoa)
+			   email :: binary(),	
+			   type :: non_neg_integer(),					%% 1 = institucional  2 = outro
+			   ctrl_path :: string(),
+			   ctrl_file :: string(),
+			   ctrl_insert,									%% Data que o serviço foi inserido no banco mnesia
+			   ctrl_update, 								%% Data que o serviço foi atualiado no banco mnesia			
+			   ctrl_modified,								%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+			   ctrl_hash									%% Hash gerado para poder comparar dois registros
+		}).
+
+-record(user_endereco, {
+			   id :: non_neg_integer(), 					%% identificador do endereço (Na UnB é o campo TB_Endereco.EndCodigo)
+			   codigo :: non_neg_integer(),					%% código da pessoa. (Na UnB é o campo Tb_Pessoa.PesCodigoPessoa)
+			   endereco :: binary(),
+			   complemento :: binary(),
+			   bairro :: binary(),
+			   cidade :: binary(),
+			   uf :: binary(),
+			   cep :: binary(),
+			   type :: non_neg_integer(),					%% 1 = residencial  2 = comercial 3 = exterior 4 = outro
+			   ctrl_path :: string(),
+			   ctrl_file :: string(),
+			   ctrl_insert,									%% Data que o serviço foi inserido no banco mnesia
+			   ctrl_update, 								%% Data que o serviço foi atualiado no banco mnesia			
+			   ctrl_modified,								%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+			   ctrl_hash									%% Hash gerado para poder comparar dois registros
+		}).
+
+-record(user_telefone, {
+			   id :: non_neg_integer(), 					%% identificador do endereço (Na UnB é o campo TB_Telefone.TelCodigo)
+			   codigo :: non_neg_integer(),					%% código da pessoa. (Na UnB é o campo Tb_Pessoa.PesCodigoPessoa)
+			   numero :: binary(),
+			   ramal :: non_neg_integer(),
+			   ddd :: binary(),
+			   type :: non_neg_integer(),					%% 1 = celular  2 = comercial 3 = residencial
+			   ctrl_path :: string(),
+			   ctrl_file :: string(),
+			   ctrl_insert,									%% Data que o serviço foi inserido no banco mnesia
+			   ctrl_update, 								%% Data que o serviço foi atualiado no banco mnesia			
+			   ctrl_modified,								%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+			   ctrl_hash									%% Hash gerado para poder comparar dois registros
+		}).
+
+-record(user_permission, {id :: non_neg_integer(),			%% identificador do perfil (required) (Na UnB é o campo TB_Perfil_Transacao.PTrid)
+						  user_id :: non_neg_integer(),		%% identificador do usuário (required) (Na UnB é o campo Tb_Usuario.UsuId)
+						  client_id :: non_neg_integer(),	%% identificador do cliente (required) (Na UnB é o campo Tb_Sistemas.PerSisId)
 						  hash :: non_neg_integer(),
 						  hash2 :: non_neg_integer(),
 						  name :: binary(),
@@ -57,34 +120,41 @@
 						  grant_post :: boolean(),
 						  grant_put :: boolean(),
 						  grant_delete :: boolean(),
-						  user_id :: non_neg_integer(),
-						  sis_id :: non_neg_integer(),
-						  perfil_id :: non_neg_integer(),
-						  ctrl_insert,
-						  ctrl_update
+						  ctrl_path :: string(),
+						  ctrl_file :: string(),
+						  ctrl_insert,							%% Data que o serviço foi inserido no banco mnesia
+						  ctrl_update, 							%% Data que o serviço foi atualiado no banco mnesia			
+						  ctrl_modified,						%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+						  ctrl_hash								%% Hash gerado para poder comparar dois registros
           }).
 
 
--record(user_perfil, {id :: non_neg_integer(), 					
-					  perfil_id :: non_neg_integer(),					
-					  user_id :: non_neg_integer(),					
-					  name :: binary(), 
-					  description :: binary(),
-					  ctrl_insert,
-					  ctrl_update 
+-record(user_perfil, {id :: non_neg_integer(), 				%% identificador do perfil (required) (Na UnB é o campo Tb_Perfil.PerId)				
+					  user_id :: non_neg_integer(),			%% identificador interno do usuário (required)
+					  client_id :: non_neg_integer(),		%% identificador interno do client (required)
+					  name :: binary(), 					%% nome do perfil (required)
+					  ctrl_path :: string(),
+				      ctrl_file :: string(),
+				      ctrl_insert,							%% Data que o serviço foi inserido no banco mnesia
+				      ctrl_update, 							%% Data que o serviço foi atualiado no banco mnesia			
+				      ctrl_modified,						%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+				      ctrl_hash								%% Hash gerado para poder comparar dois registros
 		}).
           
 
 -record(client, {id :: non_neg_integer(), 					
-				 codigo :: non_neg_integer(),				
 				 name :: binary(), 
 			     description :: binary(),
 			     secret :: binary(),
 				 redirect_uri :: binary(),
 				 active :: boolean(),
 				 scope :: binary(),
-				 ctrl_insert,
-				 ctrl_update 
+				 ctrl_path :: string(),
+				 ctrl_file :: string(),
+				 ctrl_insert,								%% Data que o serviço foi inserido no banco mnesia
+				 ctrl_update, 								%% Data que o serviço foi atualiado no banco mnesia			
+				 ctrl_modified,								%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+				 ctrl_hash									%% Hash gerado para poder comparar dois registros
 		}).
 
 
@@ -114,10 +184,12 @@
 					  querystring :: binary(),					%% Querystring da requisição
 					  querystring_map,							%% Querystring convertida para map após o parser e validação
 					  params_url,								%% Map com os parâmetros da URL
+					  content_type_in :: binary(),				%% Tipo de conteúdo enviado ao barramento (Ex.: application/json, application/pdf)
 					  content_length :: non_neg_integer(), 		%% Largura da requisição
 					  content_type :: string(),					%% Tipo de conteúdo (Ex.: application/json)
 					  accept :: binary(),						%% Parâmetro ACCEPT HTTP
-					  user_agent :: binary(),					%% Parâmetro USER_AGENT HTTP
+					  user_agent :: binary(),					%% Nome do browser
+					  user_agent_version :: binary(),			%% Versão do browser
 					  accept_encoding :: string(),				%% Parâmetro ACCEPT_ENCODING HTTP
 					  cache_control :: binary(),				%% Parâmetro CACHE-CONTROL HTTP
 					  etag :: string(),							%% Parâmetro ETag
@@ -144,7 +216,7 @@
 					  response_header = #{},
 					  req_hash,
 					  host :: binary(),							%% Ip do barramento
-					  filename :: string(),
+					  filename :: string(),						%% Qual arquivo foi lido do disco
 					  referer :: binary(),
 					  access_token :: binary(),
 					  scope :: binary(),
@@ -157,22 +229,42 @@
 
 -record(service_datasource, {id :: non_neg_integer(),
 							 rowid :: non_neg_integer(),
-							 type :: atom(),
-							 driver :: atom(),
-							 connection = <<>> :: binary(),
-							 table_name = <<>> :: binary(),
-							 primary_key = <<>> :: binary(),
-							 csv_delimiter = <<";">> :: binary(),
-							 sql = <<>> :: binary(),
-							 timeout = 30000 :: non_neg_integer(),
-							 max_pool_size = 1 :: non_neg_integer(),
+							 type :: atom(),								%% sqlserver, csvfile, mnesia
+							 driver :: binary(),							%% sqlite3, odbc, undefined
+							 connection :: binary(),
+							 table_name :: binary() | atom() | list(atom()),
+							 fields :: binary() | atom() | list(atom()),
+							 remap_fields :: map(),							%% Permite expor um campo com outro nome
+							 remap_fields_rev :: map(),						
+							 show_remap_fields :: boolean(),				%% Indica se deve mostrar os campos remapeados
+							 primary_key :: binary() | atom(),
+							 foreign_key :: binary() | atom(),
+							 foreign_table_name  :: binary() | atom(),			
+							 csv_delimiter :: binary(),
+							 sql :: binary(),
+							 timeout :: non_neg_integer(),
+							 max_pool_size :: non_neg_integer(),
 							 conn_ref,
 							 pid_module,
 							 pid_module_ref,
 							 owner,
 							 owner_ref,
-							 pool_name :: string(),
-							 parent = undefined :: string()
+							 connection_count_metric_name :: atom(),		%% Quantas conexões alocadas
+							 connection_created_metric_name :: atom(),		%% Quantas conexões criadas
+							 connection_closed_metric_name :: atom(),   	%% Quantas conexões foram fechadas de forma normal
+							 connection_shutdown_metric_name :: atom(), 	%% Quantas conexões foram fechadas devido algum erro
+							 connection_reuse_metric_name :: atom(), 		%% Quantas conexões foram reutilizadas
+							 connection_unavailable_metric_name :: atom(), 	%% Quantas vezes não houve conexão
+							 connection_max_pool_size_exceeded_metric_name :: atom(), 	%% Quantas vezes excedeu o número de conexões permitidos
+							 sql_check_valid_connection :: string(),
+							 check_valid_connection_timeout :: non_neg_integer(),
+							 close_idle_connection_timeout :: non_neg_integer(),
+							 ctrl_path :: string(),
+							 ctrl_file :: string(),
+							 ctrl_insert,									%% Data que o serviço foi inserido no banco mnesia
+							 ctrl_update, 									%% Data que o serviço foi atualiado no banco mnesia			
+							 ctrl_modified,									%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+							 ctrl_hash										%% Hash gerado para poder comparar dois registros
 							}).
 
 
@@ -183,23 +275,24 @@
 						}).
 
 
--record(service, {  id :: non_neg_integer(), 					%% Id sequencial gerado automaticamente e visível no portal API Management
-					rowid,				  						%% Identificador interno do contrato (utilizado para localizar o contrato)
-					name :: string(), 							%% Nome do contrato do serviço (Por default usa-se a própria URL como name)
+-record(service, {  id :: non_neg_integer(), 					%% Id do serviço
+					rowid :: non_neg_integer(),					%% Identificador interno do contrato (utilizado para localizar o contrato)
+					name :: binary(), 							%% Nome do contrato do serviço (Por default usa-se a própria URL como name)
 					url :: string(),  							%% URL do contrato do serviço
-					type = <<"GET">> :: string(),				%% Verbo HTTP do contrato (GET, POST, PUT, DELETE e OPTIONS) ou KERNEL para módulos do barramento
+					type = <<"GET">> :: binary(),				%% Verbo HTTP do contrato (GET, POST, PUT, DELETE e OPTIONS) ou KERNEL para módulos do barramento
 					service :: binary(),						%% Serviço que será executado no contrato
-					middleware,
+					middleware :: atom(),						%% Miidleware definido para pós processamento do serviço
 					module_name :: string(), 					%% Nome do módulo do serviço que vai atender a requisição. Ex.: br.erlangms.HelloWorldService  
 					module_name_canonical :: string(), 			%% Nome do módulo canonico do serviço que vai atender a requisição. Ex.: HelloWorldService  
 					module :: atom(),  							%% Atom do processo do módulo de serviço que vai atender a requisição
 					function_name :: string(),					%% Nome da mensagem ou função que vai ser invocada no processo que vai atender a requisição
 					function :: atom(),  						%% Atom da mensagem ou função que vai ser invocada no processo que vai atender a requisição
-					id_re_compiled,   							%% Identificador da expressão regular que vai verificar se a URL bate com a URL da requisição
+					use_re = false :: boolean(),				%% Flag que indica se usa expressão regular
+					id_re_compiled = undefined, 				%% Identificador da expressão regular que vai verificar se a URL bate com a URL da requisição
 					public = true :: boolean(), 				%% Indica se o contrato estará listado no Portal API Management
-					comment :: string(), 						%% Comentário sobre o que o contrato oferece em termos de serviço
-					version = "1.0.0" :: string(), 				%% Versão do contrato do serviço
-					owner :: string(),  						%% Quem é o proprietário pelo serviço
+					comment :: binary(), 						%% Comentário sobre o que o contrato oferece em termos de serviço
+					version = "1.0.0" :: binary(), 				%% Versão do contrato do serviço
+					owner :: binary(),  						%% Quem é o proprietário pelo serviço
 					async = false :: boolean(),					%% Indica se o serviço será processado em segundo plano (chamada assíncrona)
 					querystring :: list(map()),					%% Definição da querystring para o contrato do serviço
 					qtd_querystring_req :: non_neg_integer(), 	%% Indica quantas querystrings são obrigatórias
@@ -207,38 +300,56 @@
 					host_name,				  					%% Nome do host onde está o módulo do serviço que vai processar a requisição
 					result_cache :: non_neg_integer(), 			%% Indica quanto tempo em milisegundos o resultado vai ficar armazenado em cache (somente para o módulo msbus_static_file_service)
 					authorization :: atom(),					%% Forma de autenticação (public, basic, oauth2)
+					authorization_public_check_credential = false :: boolean(),		%% Faz a checagem da credencial do usuário quando o serviço é publico
+					oauth2_with_check_constraint = false :: boolean(),
+					oauth2_allow_client_credentials = false :: boolean(),
+					oauth2_token_encrypt = false :: boolean(),
 					page,										%% Page django file
 					page_module,								%% Page module django file compiled
 					page_mime_type = <<"text/html">>,			%% Page mime type
 					node,										%% Node ou lista de node onde os serviços estão publicados
 					lang = "erlang" :: binary(),				%% Linguagem que foi utilizada para implementar o serviço
-					datasource,									%% Datasource para a fonte de dados
+					datasource :: #service_datasource{},		%% Datasource para a fonte de dados
 					debug = false :: boolean(),					%% Permite habilitar um modo debug (depende da implementação do serviço)
 					schema_in :: non_neg_integer(),
 					schema_out :: non_neg_integer(),
 					pool_size :: non_neg_integer(),
 					pool_max :: non_neg_integer(),
-					properties :: map(),
 					timeout :: non_neg_integer(),
 					expires :: non_neg_integer(),
-					cache_control :: string(),
+					cache_control :: binary(),
 					enable = false :: boolean(),
 					content_type :: binary(),					%% Tipo de conteúdo (Ex.: application/json, application/pdf)
-					path :: string(),
+					path :: string(),							%% Local para carregar arquivos estáticos
+					filename :: binary(),						%% Alguns serviços podem precisar informar um nome de arquivo
 					redirect_url :: binary(),					%% redirect url						
 					tcp_listen_address,
 					tcp_listen_address_t,
 					tcp_allowed_address,
 					tcp_allowed_address_t,
-					tcp_max_connections,
-					tcp_port,
-					tcp_is_ssl = false,
+					tcp_max_connections :: non_neg_integer(),
+					tcp_port :: non_neg_integer(),
+					tcp_is_ssl = false :: boolean(),
 					tcp_ssl_cacertfile,
 					tcp_ssl_certfile,
 					tcp_ssl_keyfile,
 					protocol :: binary(),
-					oauth2_with_check_constraint = false :: boolean(),
-					oauth2_token_encrypt = false :: boolean()
+					properties :: map(),						%% Outros parâmetros
+					ctrl_path :: string(),						%% Local de onde o catálogo foi carregado
+					ctrl_file :: string(),						%% Nome do arquivo onde está especificado o catálogo
+				    ctrl_insert,								%% Data que o serviço foi inserido no banco mnesia
+					ctrl_update, 								%% Data que o serviço foi atualiado no banco mnesia			
+					ctrl_modified,								%% Data que o serviço foi modificado na fonte onde está cadastrado (em disco ou banco de dados externo)
+					ctrl_hash,									%% Hash gerado para poder comparar dois registros
+					start_timeout :: non_neg_integer(),			%% Define um timeout inicial para o processo
+					service_exec_metric_name :: atom(),
+					service_result_cache_hit_metric_name :: atom(),
+					service_host_denied_metric_name :: atom(),
+					service_auth_denied_metric_name :: atom(),
+					service_error_metric_name :: atom(),
+					service_unavailable_metric_name :: atom(),
+					service_timeout_metric_name :: atom(),
+					http_max_content_length :: non_neg_integer()
 				}).
 
 
@@ -262,5 +373,11 @@
 -record(produto, {id :: non_neg_integer(), 
 				  name :: string(), 
 				  price :: non_neg_integer()}).
+
+-record(stat_counter_hist, {  id :: non_neg_integer(),
+							  stat_name :: atom(),
+							  stat_value :: non_neg_integer,
+							  stat_timestamp
+							}).
 
 

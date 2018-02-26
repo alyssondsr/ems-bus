@@ -8,9 +8,9 @@
 
 -module(ems_api_query).
 
--export([find/6, find_by_id/3, insert/3, update/4, delete/3]).
+-export([find/6, find_by_id/3, find_by_owner/7, insert/3, update/4, delete/3]).
 
--include("../../include/ems_schema.hrl").
+-include("include/ems_schema.hrl").
 
 
 find(FilterJson, Fields, Limit, Offset, Sort, Datasource = #service_datasource{type = ConnType}) ->
@@ -26,12 +26,12 @@ find(FilterJson, Fields, Limit, Offset, Sort, Datasource = #service_datasource{t
 	end.
 
 
-find_by_ownwer(FilterJson, Fields, Limit, Offset, Sort, Datasource = #service_datasource{type = ConnType}) ->
+find_by_owner(FilterJson, Fields, Limit, Offset, Sort, IdOwner, Datasource = #service_datasource{type = ConnType}) ->
 	try
 		case ConnType of
 			sqlserver -> ems_api_query_sqlserver:find(FilterJson, Fields, Limit, Offset, Sort, Datasource);
 			sqlite -> ems_api_query_sqlite:find(FilterJson, Fields, Limit, Offset, Sort, Datasource);
-			mnesia -> ems_api_query_mnesia:find(FilterJson, Fields, Limit, Offset, Sort, Datasource);
+			mnesia -> ems_api_query_mnesia:find_by_owner(FilterJson, Fields, Limit, Offset, Sort, IdOwner, Datasource);
 			_ -> erlang:error(einvalid_datasource_type)
 		end
 	catch

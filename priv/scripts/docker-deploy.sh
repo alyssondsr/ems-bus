@@ -41,8 +41,9 @@ ENTRYPOINT="ems-bus/bin/ems-bus console"
 CLIENT_CONF="/tmp/erlangms_$$_barramento_client.conf"
 CLIENT_CONF_IN_MEMORY="true"
 APP_VERSION="1.0"
-ENVIRONMENT="undefined"
+ENVIRONMENT=`hostname`
 SKIP_CHECK="false"
+IMAGE_ID="latest"
 
 # Erlangms
 ERLANGMS_ADDR="127.0.0.1"
@@ -155,6 +156,7 @@ help() {
 	echo "  --erlangms_https_port   ->  port of https erlangms listener"
 	echo "  --erlangms_auth_protocol    -> authorization protocol to use. The default is oauth2"
 	echo "  --erlangms_base_url    -> base url of erlangms"
+	echo "  --image_id         -> id of a specific docker image. The default is latest"
 	echo
 	echo "Obs.: Use only com root or sudo!"
 	exit 1
@@ -230,6 +232,8 @@ for P in $*; do
 			DOCKER_VERSION="$(echo $P | cut -d= -f2)"
 		elif [[ "$P" =~ ^--registry=.+$ ]]; then
 			REGISTRY="$(echo $P | cut -d= -f2)"
+		elif [[ "$P" =~ ^--image_id=.+$ ]]; then
+			IMAGE_ID="$(echo $P | cut -d= -f2)"
 		elif [[ "$P" =~ ^--erlangms_addr=.+$ ]]; then
 			ERLANGMS_ADDR="$(echo $P | cut -d= -f2)"
 		elif [[ "$P" =~ ^--erlangms_http_port=.+$ ]]; then
@@ -267,25 +271,23 @@ for P in $*; do
 done
 
 
-# Registry settings
-if [ ! -z $REGISTRY ]; then
-	if [[ "$REGISTRY" =~ ^[0-9a-zA-Z_.]+:[0-9]+$ ]] ; then
-	   REGISTRY_PORT=$(echo $REGISTRY | awk -F: '{ print $2; }')
-	   REGISTRY_SERVER=$REGISTRY
-	elif [[ $REGISTRY =~ ^[0-9a-zA-Z_-.]+$ ]] ; then
-		REGISTRY_SERVER=$REGISTRY:$REGISTRY_PORT
+if [ -z "$TAR_FILE" ]; then
+	# Vamos precisar do registry. Validar registry settings
+	if [ ! -z $REGISTRY ]; then
+		if [[ "$REGISTRY" =~ ^[0-9a-zA-Z_.]+:[0-9]+$ ]] ; then
+		   REGISTRY_PORT=$(echo $REGISTRY | awk -F: '{ print $2; }')
+		   REGISTRY_SERVER=$REGISTRY
+		elif [[ $REGISTRY =~ ^[0-9a-zA-Z_-.]+$ ]] ; then
+			REGISTRY_SERVER=$REGISTRY:$REGISTRY_PORT
+		else
+			die "Parameter --registry $REGISTRY is invalid. Example: 127.0.0.1:5000"
+		fi
+		REGISTRY_IP="$(echo $REGISTRY_SERVER | cut -d: -f1)"
 	else
-		die "Parameter --registry $REGISTRY is invalid. Example: 127.0.0.1:5000"
+		die "Parameter --registry is required. Example: 127.0.0.1:5000"
 	fi
-	REGISTRY_IP="$(echo $REGISTRY_SERVER | cut -d: -f1)"
 else
-	die "Parameter --registry is required. Example: 127.0.0.1:5000"
-fi
-
-
-# Valida o parâmetro --tarfile se informado
-if [ ! -z "$TAR_FILE" ]; then
-	# O arquivo existe?
+	# O arquivo tar foi informado, valida se existe
 	if [ ! -f "$TAR_FILE" ]; then
 		die "tarfile $TAR_FILE does not exist!"
 	fi
@@ -351,10 +353,10 @@ if [ -z "$TAR_FILE" -a -z "$IMAGE" -a "$CURRENT_DIR_IS_DOCKER_PROJECT_GITLAB"="1
 	echo docker run --network bridge -p $SERVER_ADDR:$SERVER_HTTP_PORT_LISTENER:$SERVER_HTTP_PORT_LISTENER \
 					--network bridge -p $SERVER_ADDR:$SERVER_HTTPS_PORT_LISTENER:$SERVER_HTTPS_PORT_LISTENER \
 			   -v $CLIENT_CONF:/app/$APP_NAME/barramento \
-			   -it $APP_NAME $ENTRYPOINT 
+			   -dit --restart always $APP_NAME:$IMAGE_ID $ENTRYPOINT 
 	docker run --network bridge -p $SERVER_ADDR:$SERVER_HTTP_PORT_LISTENER:$SERVER_HTTP_PORT_LISTENER \
 			   -v $CLIENT_CONF:/app/$APP_NAME/barramento \
-			   -it $APP_NAME $ENTRYPOINT 
+			   -dit --restart always $APP_NAME:$IMAGE_ID $ENTRYPOINT 
 
 elif [ ! -z "$IMAGE" ]; then
 	if [ -z "$APP_NAME" ]; then
@@ -362,7 +364,7 @@ elif [ ! -z "$IMAGE" ]; then
 	fi
 	APP_VERSION=$(docker inspect $APP_NAME | sed -n '/"RepoTags/ , /],/p' | sed '$d' | sed '$d' | tail -1 | sed -r 's/[^0-9\.]//g')
 	
-	ID_IMAGE=$(docker ps -f name=erlangms_questionario | awk '{print $1}' | sed '1d')
+	ID_IMAGE=$(docker ps -f name=$APP_NAME | awk '{print $1}' | sed '1d')
 	if [ ! -z "$ID_IMAGE" ]; then
 		echo "docker stop $IMAGE"
 		docker stop $ID_IMAGE
@@ -399,11 +401,11 @@ elif [ ! -z "$IMAGE" ]; then
 	echo docker run  --name erlangms_$APP_NAME \
 			   --network bridge -p $SERVER_ADDR:$SERVER_HTTP_PORT_LISTENER:$SERVER_HTTP_PORT_LISTENER \
 			   -v $CLIENT_CONF:/app/$APP_NAME/barramento \
-			   -it $IMAGE $ENTRYPOINT 
+			   -dit --restart always $IMAGE:$IMAGE_ID $ENTRYPOINT 
 	docker run --name erlangms_$APP_NAME \
 			   --network bridge -p $SERVER_ADDR:$SERVER_HTTP_PORT_LISTENER:$SERVER_HTTP_PORT_LISTENER \
 			   -v $CLIENT_CONF:/app/$APP_NAME/barramento \
-			   -it $IMAGE $ENTRYPOINT  
+			   -dit --restart always $IMAGE:$IMAGE_ID $ENTRYPOINT  
 else
 	if [ -z "$APP_NAME" ]; then
 		APP_NAME=$(echo $TAR_FILE | awk -F: '{ print $1 }')
@@ -437,9 +439,9 @@ else
 
 	echo docker run --network bridge -p $SERVER_ADDR:$SERVER_HTTP_PORT_LISTENER:$SERVER_HTTP_PORT_LISTENER \
 			   -v $CLIENT_CONF:/app/$APP_NAME/barramento \
-			   -it $APP_NAME $ENTRYPOINT 
+			   -dit --restart always $APP_NAME:$IMAGE_ID $ENTRYPOINT 
 	docker run --network bridge -p $SERVER_ADDR:$SERVER_HTTP_PORT_LISTENER:$SERVER_HTTP_PORT_LISTENER \
 			   -v $CLIENT_CONF:/app/$APP_NAME/barramento \
-			   -it $APP_NAME $ENTRYPOINT 
+			   -dit --restart always $APP_NAME:$IMAGE_ID $ENTRYPOINT 
 
 fi

@@ -1,0 +1,22 @@
+[
+	{
+		"id" : 1,
+		"name": "geral",
+		"description": "erlangms",
+		"secret": "CPD",
+		"redirect_uri" : "",
+		"active": true,
+		"scope": ""
+	},
+	
+	{
+		"id" : 2,
+		"name": "logs",
+		"description": "logs",
+		"secret": "CPD",
+		"redirect_uri" : "/logs/index.html/",
+		"active": true,
+		"scope": ""
+	}
+	
+]

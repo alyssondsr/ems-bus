@@ -10,8 +10,8 @@
 
 -behavior(gen_server). 
 
--include("../include/ems_config.hrl").
--include("../include/ems_schema.hrl").
+-include("include/ems_config.hrl").
+-include("include/ems_schema.hrl").
 
 %% Server API
 -export([start/1, stop/0]).
@@ -31,6 +31,8 @@
 		 log_file_head/0,
 		 log_file_head/1,
 		 log_file_name/0,
+		 format_info/1, 
+		 format_info/2,
 		 format_warn/1, 
 		 format_warn/2,
 		 format_error/1, 
@@ -38,7 +40,8 @@
 		 format_debug/1, 
 		 format_debug/2,
  		 format_alert/1, 
-		 format_alert/2
+		 format_alert/2,
+		 checkpoint/0
 ]).
 
 
@@ -52,14 +55,15 @@
 -record(state, {buffer = [],             				% The messages go first to a buffer subsequently to the log file        
 			    buffer_tela = [],        				% The messages go first to a buffer subsequently to screen
 			    flag_checkpoint_sync_buffer = false,    % checkpoint to unload the buffer to the log file
-			    flag_checkpoint_tela = false, 			% checkpoint to unload the screen buffer
+			    flag_checkpoint_screen = false, 			% checkpoint to unload the screen buffer
 				log_file_checkpoint,      				% timeout archive log checkpoing
 				log_file_name,		      				% log file name
 				log_file_handle,						% IODevice of file
 				log_file_max_size,						% Max file size in KB
-				sync_buffer_error_count = 0,			% Attempts to unload buffer
 				level = info,							% level of errors
-				show_response = false					% show response of request
+				show_response = false,					% show response of request
+				ult_msg,								% last print message
+				ult_reqhash
  			   }). 
 
 
@@ -111,7 +115,7 @@ debug(Msg, Params) ->
 debug2(Msg) -> 
 	case in_debug() of
 		true -> 
-			Msg2 = lists:concat(["\033[0;34mDEBUG ", ems_clock:local_time_str(), "  ", Msg, "\033[0m"]),
+			Msg2 = lists:concat(["\033[1;34mDEBUG ", ems_clock:local_time_str(), "  ", Msg, "\033[0m"]),
 			io:format(Msg2);
 		_ -> ok
 	end.
@@ -119,7 +123,7 @@ debug2(Msg) ->
 debug2(Msg, Params) -> 
 	case in_debug() of
 		true -> 
-			Msg2 = lists:concat(["\033[0;34mDEBUG ", ems_clock:local_time_str(), "  ", io_lib:format(Msg, Params), "\033[0m"]),
+			Msg2 = lists:concat(["\033[1;34mDEBUG ", ems_clock:local_time_str(), "  ", io_lib:format(Msg, Params), "\033[0m"]),
 			io:format(Msg2);
 		_ -> ok
 	end.
@@ -127,20 +131,30 @@ debug2(Msg, Params) ->
 
 in_debug() -> ets:lookup(debug_ets, debug) =:= [{debug, true}].
 
-mode_debug(true)  -> ets:insert(debug_ets, {debug, true});
-mode_debug(false) -> ets:insert(debug_ets, {debug, false}).
+mode_debug(true)  -> 
+	info("ems_logger debug mode enabled."),
+	ets:insert(debug_ets, {debug, true});
+mode_debug(false) -> 
+	info("ems_logger debug mode disabled."),
+	ets:insert(debug_ets, {debug, false}).
 
 sync() ->
+	info("ems_logger sync buffer."),
 	gen_server:call(?SERVER, sync_buffer). 		
 
 log_request(Request) -> 
 	gen_server:cast(?SERVER, {log_request, Request}). 
 
 set_level(Level) -> 
+	info("ems_logger set level ~p.", [Level]),
 	gen_server:cast(?SERVER, {set_level, Level}). 
 
-show_response(Value) -> 
-	gen_server:cast(?SERVER, {show_response, Value}). 
+show_response(Value) when Value == true -> 
+	info("ems_logger set show response."),
+	gen_server:cast(?SERVER, {show_response, Value});
+show_response(_) -> 
+	info("ems_logger unset show response."),
+	gen_server:cast(?SERVER, {show_response, false}). 
 
 log_file_head() ->
 	gen_server:call(?SERVER, {log_file_head, 80}). 		
@@ -156,8 +170,16 @@ log_file_tail(N) ->
 
 log_file_name() ->
 	gen_server:call(?SERVER, log_file_name). 		
+	
+checkpoint() -> 
+	info("ems_logger archive log file checkpoint."),
+	?SERVER ! checkpoint_archive_log.
+
 
 % write direct messages to console
+format_info(Message) ->	io:format(Message).
+format_info(Message, Params) ->	io:format("~s", [io_lib:format(Message, Params)]).
+
 format_warn(Message) ->	io:format("\033[0;33m~s\033[0m", [Message]).
 format_warn(Message, Params) ->	io:format("\033[0;33m~s\033[0m", [io_lib:format(Message, Params)]).
 
@@ -165,7 +187,7 @@ format_error(Message) -> io:format("\033[0;31m~s\033[0m", [Message]).
 format_error(Message, Params) -> io:format("\033[0;31m~s\033[0m", [io_lib:format(Message, Params)]).
 
 format_debug(Message) -> io:format("\033[0;34m~s\033[0m", [Message]).
-format_debug(Message, Params) -> io:format("\033[0;34m~s\033[0m", [io_lib:format(Message, Params)]).
+format_debug(Message, Params) -> io:format("\033[1;34m~s\033[0m", [io_lib:format(Message, Params)]).
 
 format_alert(Message) ->	io:format("\033[0;46m~s\033[0m", [Message]).
 format_alert(Message, Params) ->	io:format("\033[0;46m~s\033[0m", [io_lib:format(Message, Params)]).
@@ -178,7 +200,7 @@ format_alert(Message, Params) ->	io:format("\033[0;46m~s\033[0m", [io_lib:format
 %%====================================================================
  
 init(#service{properties = Props}) ->
-	ems_logger:info("Loading ERLANGMS ~s...", [?SERVER_NAME]),
+	info("Loading ESB ~s instance on Erlang/OTP ~s.", [?SERVER_NAME, erlang:system_info(otp_release)]),
 	Checkpoint = maps:get(<<"log_file_checkpoint">>, Props, ?LOG_FILE_CHECKPOINT),
 	LogFileMaxSize = maps:get(<<"log_file_max_size">>, Props, ?LOG_FILE_MAX_SIZE),
 	Conf = ems_config:getConfig(),
@@ -201,8 +223,8 @@ handle_cast({write_msg, Tipo, Msg, Params}, State) ->
 	{noreply, NewState};
 
 handle_cast({log_request, Request}, State) ->
-	do_log_request(Request, State),
-	{noreply, State};
+	NewState = do_log_request(Request, State),
+	{noreply, NewState};
 
 handle_cast({set_level, Level}, State) ->
 	{noreply, State#state{level = Level}};
@@ -211,7 +233,7 @@ handle_cast({show_response, Value}, State) ->
 	{noreply, State#state{show_response = Value}};
 
 handle_cast(sync_buffer, State) ->
-	State2 = sync_buffer_tela(State),
+	State2 = sync_buffer_screen(State),
 	State3 = sync_buffer(State2),
 	{noreply, State3}.
 
@@ -227,8 +249,8 @@ handle_call(sync_buffer, _From, State) ->
 	NewState = sync_buffer(State),
 	{reply, ok, NewState};
 
-handle_call(log_file_name, _From, State = #state{log_file_name = FileNameLog}) ->
-	{reply, FileNameLog, State};
+handle_call(log_file_name, _From, State = #state{log_file_name = FilenameLog}) ->
+	{reply, FilenameLog, State};
 
 handle_call({log_file_head, N}, _From, State) ->
 	Result = log_file_head(State, N),
@@ -239,7 +261,7 @@ handle_call({log_file_tail, N}, _From, State) ->
 	{reply, Result, State}.
 
 handle_info(checkpoint_tela, State) ->
-   NewState = sync_buffer_tela(State),
+   NewState = sync_buffer_screen(State),
    {noreply, NewState};
 
 handle_info(checkpoint, State) ->
@@ -266,20 +288,25 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 
 -spec checkpoint_arquive_log(#state{}, boolean()) -> #state{} | {error, atom()}.
-checkpoint_arquive_log(State = #state{log_file_handle = IODevice}, Immediate) ->
+checkpoint_arquive_log(State = #state{log_file_handle = CurrentIODevice, 
+									  log_file_name = CurrentLogFilename}, Immediate) ->
 	case Immediate of
-		true -> ems_logger:info("ems_logger immediate archive log file checkpoint.");
-		false -> ems_logger:info("ems_logger archive log file checkpoint.")
+		true -> 
+			ems_db:inc_counter(ems_logger_immediate_archive_log_checkpoint),
+			ems_logger:info("ems_logger immediate archive log file checkpoint.");
+		false -> 
+			ems_db:inc_counter(ems_logger_archive_log_checkpoint),
+			ems_logger:info("ems_logger archive log file checkpoint.")
 	end,
-	close_filename_device(IODevice),
+	close_filename_device(CurrentIODevice, CurrentLogFilename),
 	case open_filename_device() of
-		{ok, LogFileName, IODevice2} ->
-			ems_logger:info("ems_logger open ~p for append.", [LogFileName]),
-			State2 = State#state{log_file_name = LogFileName, 
-								 log_file_handle = IODevice2,
-								 sync_buffer_error_count = 0};
+		{ok, LogFilename, IODevice2} ->
+			ems_logger:info("ems_logger open ~p.", [LogFilename]),
+			State2 = State#state{log_file_name = LogFilename, 
+								 log_file_handle = IODevice2};
 		{error, Reason} ->
-			ems_logger:error("ems_logger archive log file checkpoint error: ~p.", [Reason]),
+			ems_db:inc_counter(ems_logger_archive_log_error),
+			ems_logger:error("ems_logger archive log file checkpoint exception: ~p.", [Reason]),
 			State2 = State
 	end,
 	set_timeout_archive_log_checkpoint(),
@@ -287,178 +314,196 @@ checkpoint_arquive_log(State = #state{log_file_handle = IODevice}, Immediate) ->
 
     
 open_filename_device() -> 
-	{{Ano,Mes,Dia},{Hora,Min,Seg}} = calendar:local_time(),
+	{{Ano,Mes,Dia},{Hora,Min,_}} = calendar:local_time(),
 	MesAbrev = ems_util:mes_abreviado(Mes),
-	NodeName = ems_util:get_node_name(),
-	LogFileName = lists:flatten(io_lib:format("~s/~s/~p/~s/~s_~s_~2..0w~2..0w~4..0w_~2..0w~2..0w~2..0w.log", [?LOG_PATH, atom_to_list(node()), Ano, MesAbrev, NodeName, MesAbrev, Dia, Mes, Ano, Hora, Min, Seg])),
-	open_filename_device(LogFileName).
+	LogFilename = lists:flatten(io_lib:format("~s/~p/~s/~s_~s_~2..0w~2..0w~4..0w_~2..0w~2..0w.log", [?LOG_PATH, Ano, MesAbrev, "emsbus", MesAbrev, Dia, Mes, Ano, Hora, Min])),
+	open_filename_device(LogFilename).
 
-open_filename_device(LogFileName) ->
-	case filelib:ensure_dir(LogFileName) of
+open_filename_device(LogFilename) ->
+	case filelib:ensure_dir(LogFilename) of
 		ok ->
-			case file:open(LogFileName, [append, {delayed_write, 256, 2}]) of
+			case file:open(LogFilename, [append, {delayed_write, 256, 2}]) of
 				{ok, IODevice} -> 
-					{ok, LogFileName, IODevice};
+					{ok, LogFilename, IODevice};
 				{error, enospc} = Error ->
-					ems_logger:error("ems_logger does not have disk storage space to write to the log files."),
+					ems_db:inc_counter(ems_logger_open_file_enospc),
+					ems_logger:error("ems_logger open_filename_device does not have disk storage space to write to the log files."),
 					Error;
 				{error, Reason} = Error -> 
-					ems_logger:error("ems_logger failed to open log file for append. Reason: ~p.", [Reason]),
+					ems_db:inc_counter(ems_logger_open_file_error),
+					ems_logger:error("ems_logger open_filename_device failed to open log file. Reason: ~p.", [Reason]),
 					Error
 			end;
 		{error, Reason} = Error -> 
-			ems_logger:error("ems_logger failed to create log file dir. Reason: ~p.", [Reason]),
+			ems_db:inc_counter(ems_logger_open_file_error),
+			ems_logger:error("ems_logger open_filename_device failed to create log file dir. Reason: ~p.", [Reason]),
 			Error
 	end.
 
-log_file_head(#state{log_file_name = LogFileName}, N) ->
-	case ems_util:head_file(LogFileName, N) of
+log_file_head(#state{log_file_name = LogFilename}, N) ->
+	case ems_util:head_file(LogFilename, N) of
 		{ok, List} -> {ok, List};
 		{error, Reason} = Error -> 
-			ems_logger:error("ems_logger failed to open log file for read. Reason: ~p.", [Reason]),
+			ems_logger:error("ems_logger log_file_head failed to open log file for read. Reason: ~p.", [Reason]),
 			Error
 	end.
 
-log_file_tail(#state{log_file_name = LogFileName}, N) ->
-	case ems_util:tail_file(LogFileName, N) of
+log_file_tail(#state{log_file_name = LogFilename}, N) ->
+	case ems_util:tail_file(LogFilename, N) of
 		{ok, List} -> {ok, List};
 		{error, Reason} = Error -> 
-			ems_logger:error("ems_logger failed to open log file for read. Reason: ~p.", [Reason]),
+			ems_logger:error("ems_logger log_file_tail failed to open log file for read. Reason: ~p.", [Reason]),
 			Error
 	end.
 
-close_filename_device(undefined) -> ok;
-close_filename_device(IODevice) -> file:close(IODevice).
+close_filename_device(undefined, _) -> ok;
+close_filename_device(IODevice, LogFilename) -> 
+	?DEBUG("ems_logger close log file ~p.", [LogFilename]),
+	file:close(IODevice).
 
 set_timeout_for_sync_buffer(#state{flag_checkpoint_sync_buffer = false, log_file_checkpoint=Timeout}) ->    
-	%?DEBUG("ems_logger set_timeout_for_sync_buffer."),
 	erlang:send_after(Timeout, self(), checkpoint);
 
 set_timeout_for_sync_buffer(_State) ->    
 	ok.
 
-set_timeout_for_sync_tela(#state{flag_checkpoint_tela = false}) ->    
-	%?DEBUG("ems_logger set_timeout_for_sync_tela."),
+set_timeout_for_sync_tela(#state{flag_checkpoint_screen = false}) ->    
 	erlang:send_after(2000, self(), checkpoint_tela);
 
 set_timeout_for_sync_tela(_State) ->    
 	ok.
 
 set_timeout_archive_log_checkpoint() ->    
-	%?DEBUG("ems_logger set_timeout_archive_log_checkpoint."),
 	erlang:send_after(?LOG_ARCHIVE_CHECKPOINT, self(), checkpoint_archive_log).
 
-write_msg(Tipo, Msg, State) when is_binary(Msg) ->
-	Msg1 = binary_to_list(Msg),
-    write_msg(Tipo, Msg1, State);
-write_msg(Tipo, Msg, State = #state{level = Level})  ->
-	case Tipo of
-		info  -> Msg1 = lists:concat(["INFO ", ems_clock:local_time_str(), "  ", Msg]);
-		error -> Msg1 = lists:concat(["\033[0;31mERROR ", ems_clock:local_time_str(), "  ", Msg, "\033[0m"]);
-		warn  -> Msg1 = lists:concat(["\033[0;33mWARN ", ems_clock:local_time_str(), "  ", Msg, "\033[0m"]);
-		debug -> Msg1 = lists:concat(["\033[0;34mDEBUG ", ems_clock:local_time_str(), "  ", Msg, "\033[0m"])
-	end,
-	UltMsg = erlang:get(ult_msg),
-	case UltMsg == undefined orelse UltMsg =/= Msg1 of
+write_msg(Tipo, Msg, State = #state{level = Level, ult_msg = UltMsg})  ->
+	%% test overflow duplicated messages
+	case UltMsg == undefined orelse UltMsg =/= Msg of
 		true ->
-			erlang:put(ult_msg, Msg1),
-			case Level == error andalso Tipo /= error of
+			case Tipo of
+				info  -> 
+					ems_db:inc_counter(ems_logger_write_info),
+					Msg1 = iolist_to_binary([<<"INFO ">>, ems_clock:local_time_str(), <<"  ">>, Msg, <<"\n">>]);
+				error -> 
+					ems_db:inc_counter(ems_logger_write_error),
+					Msg1 = iolist_to_binary([<<"\033[0;31mERROR ">>, ems_clock:local_time_str(), <<"  ">>, Msg, <<"\033[0m\n">>]);
+				warn  -> 
+					ems_db:inc_counter(ems_logger_write_warn),
+					Msg1 = iolist_to_binary([<<"\033[0;33mWARN ">>, ems_clock:local_time_str(), <<"  ">>, Msg, <<"\033[0m\n">>]);
+				debug -> 
+					ems_db:inc_counter(ems_logger_write_debug),
+					Msg1 = iolist_to_binary([<<"\033[1;34mDEBUG ">>, ems_clock:local_time_str(), <<"  ">>, Msg, <<"\033[0m\n">>])
+			end,
+			case (Level == error andalso Tipo /= error) andalso (Tipo /= debug) of
 				true ->
-					set_timeout_for_sync_buffer(State),
-					State#state{buffer = [Msg1|State#state.buffer], 
-								flag_checkpoint_sync_buffer = true};
+					case length(State#state.buffer) == 200 of
+						true -> 
+							ems_db:inc_counter(ems_logger_immediate_sync_buffer),
+							State2 = sync_buffer_screen(State),
+							State2#state{buffer = [Msg1|State#state.buffer], 
+										 flag_checkpoint_sync_buffer = true,
+										 ult_msg = Msg};
+						false -> 
+							set_timeout_for_sync_buffer(State),
+							State#state{buffer = [Msg1|State#state.buffer], 
+									    flag_checkpoint_sync_buffer = true,
+										ult_msg = Msg}
+					end;
 				false ->
-					set_timeout_for_sync_buffer(State),
-					set_timeout_for_sync_tela(State),
-					State#state{buffer = [Msg1|State#state.buffer], 
-								buffer_tela = [Msg1|State#state.buffer_tela], 
-								flag_checkpoint_sync_buffer = true, 
-								flag_checkpoint_tela = true}
+					case length(State#state.buffer) == 200 of
+						true -> 
+							ems_db:inc_counter(ems_logger_immediate_sync_buffer),
+							State2 = sync_buffer_screen(State),
+							State3 = sync_buffer(State2),
+							State3#state{buffer = [Msg1|State#state.buffer], 
+										 buffer_tela = [Msg1|State#state.buffer_tela], 
+										 flag_checkpoint_sync_buffer = true, 
+										 flag_checkpoint_screen = true,
+										 ult_msg = Msg};
+						false ->
+							set_timeout_for_sync_buffer(State),
+							set_timeout_for_sync_tela(State),
+							State#state{buffer = [Msg1|State#state.buffer], 
+										buffer_tela = [Msg1|State#state.buffer_tela], 
+										flag_checkpoint_sync_buffer = true, 
+										flag_checkpoint_screen = true,
+										ult_msg = Msg}
+					end
 			end;
 		false -> 
-			?DEBUG("ems_logger skip write_msg. Type: ~p, Level: ~p.", [Tipo, Level]),
+			ems_db:inc_counter(ems_logger_write_dup),
 			State
 	end.
-		
 	
 write_msg(Tipo, Msg, Params, State) ->
 	Msg1 = io_lib:format(Msg, Params),
 	write_msg(Tipo, Msg1, State).
-sync_buffer_tela(State = #state{buffer_tela = []}) -> State;
-sync_buffer_tela(State) ->
-	Msg = [ [L | ["\n"]] || L <- lists:reverse(State#state.buffer_tela)],
-	io:format(Msg),
-	State#state{buffer_tela = [], flag_checkpoint_tela = false}.
+	
+	
+sync_buffer_screen(State = #state{buffer_tela = []}) -> State;
+sync_buffer_screen(State) ->
+	ems_db:inc_counter(ems_logger_sync_buffer_screen),
+	Msg = lists:reverse(State#state.buffer_tela),
+	try
+		io:format(Msg)
+	catch
+		_:_ -> ok
+	end,
+	State#state{buffer_tela = [], flag_checkpoint_screen = false, ult_msg = undefined, ult_reqhash = undefined}.
 
 
-sync_buffer(State = #state{buffer = []}) -> State;
-sync_buffer(State = #state{sync_buffer_error_count = 10}) ->
-	ems_logger:error("ems_logger tried to unload cache buffer 10 times without success. Clear log buffer cache."),
-	State#state{buffer = [], flag_checkpoint_sync_buffer = false, sync_buffer_error_count = 0};
 sync_buffer(State = #state{buffer = Buffer,
-						   log_file_name = CurrentLogFileName,
+						   log_file_name = CurrentLogFilename,
 						   log_file_max_size = LogFileMaxSize,
-						   sync_buffer_error_count = SyncBufferErrorCount}) ->
-	%?DEBUG("ems_logger sync_buffer to log file ~p. Buffer count: ~p, FileSize: ~p.", [CurrentLogFileName, string:len(Buffer), filelib:file_size(CurrentLogFileName)]),
-	% check limit log file max size
-	case filelib:file_size(CurrentLogFileName) > LogFileMaxSize of
+						   log_file_handle = CurrentIODevice}) ->
+	ems_db:inc_counter(ems_logger_sync_buffer),
+	FileSize = filelib:file_size(CurrentLogFilename),
+	case FileSize > LogFileMaxSize of 	% check limit log file max size
 		true -> 
+			ems_db:inc_counter(ems_logger_sync_buffer_file_size_exceeded),
 			ems_logger:info("ems_logger is writing to a log file that has already exceeded the allowed limit."),
-			State2 = checkpoint_arquive_log(State, true),
-			State2#state{flag_checkpoint_sync_buffer = false, 
-						 sync_buffer_error_count = 0};
+			State2 = checkpoint_arquive_log(State, true);
 		false ->
-			% IoDevice is really the pid of the process that handles the file. 
-			% Open again to verify that the file actually exists
-			case open_filename_device(CurrentLogFileName) of
-				{ok, LogFileName, IODevice} -> 
-					Msg = [ [L | ["\n"]] || L <- lists:reverse(Buffer)],
-					case file:write(IODevice, Msg) of
-						ok -> 
-							State#state{buffer = [], 
-										flag_checkpoint_sync_buffer = false, 
-										log_file_handle = IODevice, 
-										log_file_name = LogFileName, 
-										sync_buffer_error_count = 0};
-						{error, enospc} -> 
-							ems_logger:error("ems_logger does not have disk storage space to write to the log files. Clear log buffer cache."),
-							State#state{buffer = [], 
-										flag_checkpoint_sync_buffer = false, 
-										log_file_handle = IODevice, 
-										log_file_name = LogFileName,
-										sync_buffer_error_count = 0};
-						{error, ebadf} ->
-							ems_logger:error("ems_logger does no have log file descriptor valid. Clear log buffer cache."),
-							State#state{buffer = [], 
-										flag_checkpoint_sync_buffer = false, 
-										log_file_handle = IODevice, 
-										log_file_name = LogFileName,
-										sync_buffer_error_count = 0};
-						{error, Reason} ->
-							ems_logger:error("ems_logger was unable to unload the log buffer cache. Reason: ~p. Clear log buffer cache.", [Reason]),
-							State#state{buffer = [], 
-										flag_checkpoint_sync_buffer = false, 
-										log_file_handle = IODevice, 
-										log_file_name = LogFileName,
-										sync_buffer_error_count = 0}
-					end;
-				{error, Reason} -> 
-					ems_logger:error("ems_logger was unable to open log file ~p to unload the log buffer cache. Reason: ~p.", [CurrentLogFileName, Reason]),
-					State2 = checkpoint_arquive_log(State#state{sync_buffer_error_count = SyncBufferErrorCount + 1}, true),
-					State2
+			case FileSize == 0 of % Check file deleted
+				true ->
+					close_filename_device(CurrentIODevice, CurrentLogFilename),
+					{ok, LogFilename, IODevice} = open_filename_device(),
+					State2 = State#state{buffer = [], 
+										 log_file_handle = IODevice,
+										 log_file_name = LogFilename,
+										 flag_checkpoint_sync_buffer = false};
+				false ->
+					State2 = State#state{buffer = [], 
+										 flag_checkpoint_sync_buffer = false}
 			end
-	end.
+	end,
+	Msg = lists:reverse(Buffer),
+	case file:write(State2#state.log_file_handle, Msg) of
+		ok -> ok;
+		{error, enospc} -> 
+			ems_db:inc_counter(ems_logger_sync_buffer_enospc),
+			ems_logger:error("ems_logger does not have disk storage space to write to the log files.");
+		{error, ebadf} ->
+			ems_db:inc_counter(ems_logger_sync_buffer_ebadf),
+			ems_logger:error("ems_logger does no have log file descriptor valid.");
+		{error, Reason} ->
+			ems_db:inc_counter(ems_logger_sync_buffer_error),
+			ems_logger:error("ems_logger was unable to unload the log buffer cache. Reason: ~p.", [Reason])
+	end,
+	State2.
 
 	
 do_log_request(#request{rid = RID,
 						req_hash = ReqHash,
-						type = Metodo,
+						type = Type,
 						uri = Uri,
 						version = Version,
+						content_type_in = ContentTypeIn,
 						content_type = ContentType,
+						content_length = ContentLength,
 						accept = Accept,
 						ip_bin = IpBin,
-						payload_map = Payload,
+						payload = Payload,
 						service = Service,
 						params_url = Params,
 						querystring_map = Query,
@@ -467,7 +512,6 @@ do_log_request(#request{rid = RID,
 						latency = Latency,
 						result_cache = ResultCache,
 						result_cache_rid = ResultCacheRid,
-						response_header = ResponseHeader,
 						response_data = ResponseData,
 						authorization = Authorization,
 						cache_control = CacheControl,
@@ -477,7 +521,8 @@ do_log_request(#request{rid = RID,
 						node_exec = Node,
 						referer = Referer,
 						user_agent = UserAgent,
-						filename = FileName,
+						user_agent_version = UserAgentVersion,
+						filename = Filename,
 						client = Client,
 						user = User,
 						scope = Scope,
@@ -485,106 +530,160 @@ do_log_request(#request{rid = RID,
 						oauth2_access_token = AccessToken,
 						oauth2_refresh_token = RefreshToken
 			  }, 
-			  #state{show_response = ShowResponse}) ->
-			  
-	Texto =  "~s ~s ~s {\n\tRID: ~p  (ReqHash: ~p)\n\tContent-Type: ~p\n\tAccept: ~p\n\tPeer: ~p  Referer: ~p\n\tUser-Agent: ~p\n\tService: ~p\n\tParams: ~p\n\tQuery: ~p\n\tPayload: ~p\n\t~sResult-Cache: ~s\n\tCache-Control: ~p  ETag: ~p\n\tIf-Modified-Since: ~p  If-None-Match: ~p\n\tAuthorization mode: ~p\n\tAuthorization header: ~p\n\t~s~s~s~sClient: ~p\n\tUser: ~p\n\tNode: ~p\n\tFileName: ~p\n\tStatus: ~p <<~p>> (~pms)\n}",
-	Texto1 = io_lib:format(Texto, [Metodo, 
-								   Uri, 
-								   Version, 
-								   RID,
-								   ReqHash,
-								   ContentType, 
-								   Accept,
-								   IpBin, 
-								   case Referer of
-										undefined -> <<>>;
-										_ -> Referer
-								   end,
-								   UserAgent,
-								   case Service of 
-										undefined -> <<>>; 
-										_ -> Service#service.service 
-								   end,
-								   Params,
-								   Query, 
-								   Payload, 
-								   case ShowResponse of 
-										true -> 
-											io_lib:format("Header Response: ~p\n\tResponse: ~p\n\t", [ResponseHeader, ResponseData]); 
-										false -> <<>> 
-								   end,
-								   case Service =/= undefined of
-										true ->
-										   case ResultCache of 
-												true -> io_lib:format("~sms  <<RID: ~s>>", [integer_to_list(Service#service.result_cache), integer_to_list(ResultCacheRid)]); 
-												false -> integer_to_list(Service#service.result_cache) ++ "ms" 
-											end;
-										false -> "0ms"
-								   end,
-								   case CacheControl of
-										undefined -> <<>>;
-										_ -> CacheControl
-								   end,
-								   case Etag of
+			  State = #state{show_response = ShowResponse, ult_reqhash = UltReqHash}) ->
+	try
+		case UltReqHash == undefined orelse UltReqHash =/= ReqHash of
+			true ->
+				Texto1 = 
+					  iolist_to_binary([
+					   Type, <<" ">>,
+					   Uri, <<" ">>,
+					   atom_to_binary(Version, utf8), <<" ">>,
+					   <<" {\n\tRID: ">>,  integer_to_binary(RID),
+					   <<"  (ReqHash: ">>, integer_to_binary(ReqHash), <<")">>, 
+					   <<"\n\tAccept: ">>, Accept,
+					   <<"\n\tContent-Type in: ">>, case ContentTypeIn of
+														undefined -> <<>>;
+														_ -> ContentTypeIn
+													end, 
+						<<"\n\tContent-Type out: ">>,  case ContentType of
+															undefined -> <<>>;
+															_ -> ContentType 
+													   end,
+						<<"\n\tPeer: ">>, IpBin, <<"  Referer: ">>, case Referer of
+																		undefined -> <<>>;
+																		_ -> Referer
+																	end,
+						<<"\n\tUser-Agent: ">>, ems_util:user_agent_atom_to_binary(UserAgent), <<"  Version: ">>, UserAgentVersion,	
+						<<"\n\tService: ">>, case Service of 
+												undefined -> <<>>; 
+												_ -> Service#service.service 
+											 end,
+						<<"\n\tParams: ">>, ems_util:print_int_map(Params), 
+						<<"\n\tQuery: ">>, ems_util:print_str_map(Query), 
+						<<"\n\tPayload: ">>, case ContentLength < 90 of
+												true -> Payload;
+												false -> [binary:part(Payload, 0, 89), <<"...">>]
+											 end,
+						 case ShowResponse andalso byte_size(ResponseData) < 90 of 
+							true -> [<<"\n\tResponse: ">>, ResponseData]; 
+							false -> <<>> 
+						end,
+						case Service =/= undefined of
+							true ->
+							   case Service#service.result_cache > 0 of
+									true ->
+									   ResultCacheSec = trunc(Service#service.result_cache / 1000),
+									   case ResultCacheSec > 0 of 
+											true  -> ResultCacheMin = trunc(ResultCacheSec / 60);
+											false -> ResultCacheMin = 0
+									   end,
+									   case ResultCacheMin > 0 of
+											true -> 
+											   case ResultCache of 
+													true ->  [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms (">>, integer_to_binary(ResultCacheMin), <<"min)  <<RID: ">>, integer_to_binary(ResultCacheRid), <<">>">>];
+													false -> [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms (">>, integer_to_binary(ResultCacheMin), <<"min)">>] 
+												end;
+											false ->
+											   case ResultCacheSec > 0 of
+													true -> 
+													   case ResultCache of 
+															true ->  [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms (">>, integer_to_binary(ResultCacheSec), <<"sec)  <<RID: ">>, integer_to_binary(ResultCacheRid), <<">>">>];
+															false -> [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms (">>, integer_to_binary(ResultCacheSec), <<"sec)">>] 
+														end;
+													false ->
+													   case ResultCache of 
+															true ->  [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms <<RID: ">>, integer_to_binary(ResultCacheRid), <<">>">>];
+															false -> [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms">>]
+														end
+												end
+										end;
+									false -> <<>>
+								end;
+							false -> <<>>
+						end,
+					   <<"\n\tCache-Control: ">>, case CacheControl of
+													undefined -> <<>>;
+													_ -> CacheControl
+											  end,  
+						<<"  ETag: ">>, case Etag of
 										undefined -> <<>>;
 										_ -> Etag
-								   end,
-								   case IfModifiedSince of
-										undefined -> <<>>;
-										_ -> IfModifiedSince
-								   end,
-								   case IfNoneMatch of
-										undefined -> <<>>;
-										_ -> IfNoneMatch
-								   end,
-								   case Service of 
-										undefined -> <<>>; 
-										_ -> 
-											case Service#service.authorization of
-												basic -> <<"basic, oauth2">>;
-												_ -> Service#service.authorization
-											end
-								   end,
-								   Authorization,
-								   case GrantType of
-										undefined -> "";
-										_ ->  lists:flatten(io_lib:format("OAuth2 grant type: ~p\n\t", [GrantType]))
-								   end,
-								   case AccessToken of
-										undefined -> "";
-										_ ->  lists:flatten(io_lib:format("OAuth2 access token: ~p\n\t", [AccessToken]))
-								   end,
-								   case RefreshToken of
-										undefined -> "";
-										_ ->  lists:flatten(io_lib:format("OAuth2 refresh token: ~p\n\t", [RefreshToken]))
-								   end,
-								   case Scope of
-										undefined -> "";
-										_ -> lists:flatten(io_lib:format("OAuth2 scope: ~p\n\t", [Scope]))
-								   end,
-								   case Client of
+									end,
+						<<"\n\tIf-Modified-Since: ">>, case IfModifiedSince of
+														undefined -> <<>>;
+														_ -> IfModifiedSince
+												   end,
+					   <<"  If-None-Match: ">>, case IfNoneMatch of
+												undefined -> <<>>;
+												_ -> IfNoneMatch
+										   end,
+					   <<"\n\tAuthorization mode: ">>, case Service of 
+														undefined -> <<>>; 
+														_ -> 
+															case Service#service.authorization of
+																basic -> <<"basic, oauth2">>;
+																oauth2 -> <<"oauth2">>;
+																_ -> <<"public">>
+															end
+												   end,
+					   <<"\n\tAuthorization header: <<">>, case Authorization of
+															undefined -> <<>>;
+															_ -> Authorization
+														 end, <<">>">>,
+					   case GrantType of
+									undefined -> <<>>;
+									_ -> [<<"\n\tOAuth2 grant type: ">>, GrantType]
+					   end,
+					   case AccessToken of
+							undefined -> <<>>;
+							_ ->  [<<"\n\tOAuth2 access token: ">>, AccessToken]
+					   end,
+					   case RefreshToken of
+							undefined -> <<>>;
+							_ ->  [<<"\n\tOAuth2 refresh token: ">>, RefreshToken]
+					   end,
+					   case Scope of
+							undefined -> <<>>;
+							_ -> [<<"\n\tOAuth2 scope: ">>, Scope]
+					   end,
+					  <<"\n\tClient: ">>, case Client of
+											public -> <<"public">>;
+											undefined -> <<>>;
+											_ -> [integer_to_binary(Client#client.id), <<" ">>, Client#client.name]
+									   end,
+					   <<"\n\tUser: ">>, case User of
 										public -> <<"public">>;
 										undefined -> <<>>;
-										_ -> iolist_to_binary([integer_to_binary(Client#client.codigo), <<" ">>, Client#client.name])
-								   end,
-								   case User of
-										public -> <<"public">>;
-																						undefined -> <<>>;
-										_ ->  iolist_to_binary([integer_to_binary(User#user.codigo), <<" ">>,  User#user.name])
-								   end,
-								   case Node of
+										_ ->  [integer_to_binary(User#user.id), <<" ">>,  User#user.login]
+									 end,
+					   <<"\n\tNode: ">>, case Node of
 										undefined -> <<>>;
 										_ -> Node
-								   end,
-								   case FileName of
-										undefined -> <<>>;
-										_ -> FileName
-								   end,
-								   Code, 
-								   Reason, 
-								   Latency]),
-	case Code >= 400 of
-		true  -> ems_logger:error(Texto1);
-		false -> ems_logger:info(Texto1)
+									 end,
+					   <<"\n\tFilename: ">>, case Filename of
+											undefined -> <<>>;
+											_ -> Filename
+										 end,
+					   <<"\n\tStatus: ">>, integer_to_binary(Code), 
+					   <<" <<">>, case is_atom(Reason) of
+										true -> atom_to_binary(Reason, utf8);
+										false -> <<"error">>
+								  end, <<">> (">>, integer_to_binary(Latency), <<"ms)\n}">>]),
+					   
+				NewState = case Code >= 400 of
+								true  -> write_msg(error, Texto1, State#state{ult_reqhash = ReqHash});
+								false -> write_msg(info, Texto1, State#state{ult_reqhash = ReqHash})
+							end,
+				NewState;
+			false -> 
+				ems_db:inc_counter(ems_logger_write_dup),
+				State
+		end
+	catch 
+		_:_ -> 
+			ems_db:inc_counter(ems_logger_log_request_error),
+			State
 	end.
+	
 

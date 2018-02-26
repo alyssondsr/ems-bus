@@ -12,15 +12,10 @@
 
 if [ "$1" = "configure" ]; then
 
-  LOG="/var/log/ems-bus/ems-bus.log"
   USER_EMS_BUS=erlangms
   GROUP_EMS_BUS=erlangms
   HOME_EMS_BUS=/var/opt/erlangms
   USER_CREATED="false"
-
-  # database and log path
-  mkdir -p /usr/lib/ems-bus/priv/db > /dev/null 2>&1
-  mkdir -p /var/log/ems-bus > /dev/null 2>&1
 
   # create user and group erlangms if it not exist
   if ! grep "^erlangms:" /etc/passwd >> /dev/null ; then
@@ -44,9 +39,6 @@ if [ "$1" = "configure" ]; then
       chmod 4511 $ExecutableErts > /dev/null 2>&1
   done
   
-  # Create folder /var/log/ems-bus
-  mkdir -p /var/log/ems-bus
-  chown -Rf $USER_EMS_BUS:$GROUP_EMS_BUS /var/log/ems-bus > /dev/null 2>&1
 
   # Configure home user (/var/opt/erlangms)
   mkdir -p $HOME_EMS_BUS/.erlangms > /dev/null 2>&1
@@ -55,9 +47,11 @@ if [ "$1" = "configure" ]; then
   if [ ! -f /var/opt/erlangms/.erlangms/emsbus.conf ]; then
 	cp /usr/lib/ems-bus/priv/conf/emsbus.conf $HOME_EMS_BUS/.erlangms/ > /dev/null 2>&1
   fi
-  ln -s /usr/lib/ems-bus/ $HOME_EMS_BUS/ems-bus > /dev/null 2>&1 || true
-  ln -s /usr/lib/ems-bus/priv/ $HOME_EMS_BUS/ems-bus/priv > /dev/null 2>&1 || true
-  
+  ln -s /usr/lib/ems-bus $HOME_EMS_BUS/ems-bus > /dev/null 2>&1 || true
+  #ln -s /usr/lib/ems-bus/priv/ $HOME_EMS_BUS/ems-bus/priv > /dev/null 2>&1 || true
+  ln -s /usr/lib/ems-bus/priv $HOME_EMS_BUS/priv > /dev/null 2>&1 || true
+  ln -s /usr/lib/ems-bus/priv/log /var/log/ems-bus > /dev/null 2>&1
+ 
 
   # It only changes the $ HOME_EMS_BUS/.odbc.ini file when the user was created
   if [ "$USER_CREATED" = "true" ]; then
@@ -89,21 +83,23 @@ if [ "$1" = "configure" ]; then
   # Change owners to root:root
   chown root:root /etc/sudoers.d/ems-bus.sudoers > /dev/null 2>&1
   chown root:root /etc/systemd/system/ems-bus.service > /dev/null 2>&1
-  chown root:root /etc/systemd/system/ems-bus.epmd.service > /dev/null 2>&1
   chown -Rf root:root /etc/systemd/system/ems-bus.service.d > /dev/null 2>&1
-  chown -Rf root:root /etc/systemd/system/ems-bus.epmd.service.d > /dev/null 2>&1
 
 
   # Config /etc/odbcinst.ini if necessary for FreeTDS SQL-server driver
   JTDS_ENTRY_CONF=$(sed -rn '/\[FreeTDS\]/, /(^$|^#)/p' /etc/odbcinst.ini 2> /dev/null)
   if [ -z "$JTDS_ENTRY_CONF" ]; then
-	echo " " >> /etc/odbcinst.ini 
-	echo "# Driver for SQL-server" >> /etc/odbcinst.ini 
-	echo "# Setup from the ems-bus package" >> /etc/odbcinst.ini 
-	echo "[FreeTDS]" >> /etc/odbcinst.ini 
-	echo "Description=FreeTDS Driver" >> /etc/odbcinst.ini 
-	echo "Driver=/usr/lib64/libtdsodbc.so.0" >> /etc/odbcinst.ini 
-	echo " " >> /etc/odbcinst.ini 
+	updatedb
+	LIB_TDODBC_PATH=$(locate libtdsodbc.so | sed -n '1p')
+	if [ ! -z "$LIB_TDODBC_PATH" ]; then
+		echo " " >> /etc/odbcinst.ini 
+		echo "# Driver for SQL-server" >> /etc/odbcinst.ini 
+		echo "# Setup from the ems-bus package" >> /etc/odbcinst.ini 
+		echo "[FreeTDS]" >> /etc/odbcinst.ini 
+		echo "Description=FreeTDS Driver" >> /etc/odbcinst.ini 
+		echo "Driver=$LIB_TDODBC_PATH" >> /etc/odbcinst.ini 
+		echo " " >> /etc/odbcinst.ini 
+	fi
   fi
 
   # Config /etc/security/limits.conf if necessary for erlangms group
@@ -134,21 +130,19 @@ if [ "$1" = "configure" ]; then
 		sysctl -p > /dev/null 2>&1
   fi
 
-  # database recreate
-  rm -Rf /usr/lib/ems-bus/priv/ems-bus/db > /dev/null 2>&1 || true
+  # database backup
+  mv /usr/lib/ems-bus/priv/db /usr/lib/ems-bus/priv/db_`date '+%d%m%Y_%H%M%S'`  > /dev/null 2>&1 || true
 
   # ldconfig
   /sbin/ldconfig  > /dev/null 2>&1 || true
 
 
   # systemd
+  systemctl enable /usr/lib/ems-bus/priv/systemd/ems-bus.service  > /dev/null 2>&1 || true
   systemctl daemon-reload  > /dev/null 2>&1 || true
-  systemctl enable ems-bus.epmd.service  > /dev/null 2>&1 || true
-  systemctl enable ems-bus.service  > /dev/null 2>&1 || true
 fi
 
-systemctl start ems-bus.epmd.service  > /dev/null 2>&1 || true
-sleep 1
+sleep 2
 systemctl start ems-bus.service  > /dev/null 2>&1 || true
 
 exit 0

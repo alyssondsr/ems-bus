@@ -8,10 +8,11 @@
 
 -module(ems_netadm_service).
 
--include("../include/ems_config.hrl").
--include("../include/ems_schema.hrl").
+-include("include/ems_config.hrl").
+-include("include/ems_schema.hrl").
 
--export([names/1, world/1, hostfile/1, hostname/1, localhost/1, memory/1, timestamp/1, threads/1, info/1]).
+-export([names/1, world/1, hostfile/1, hostname/1, localhost/1, memory/1, timestamp/1, 
+		 threads/1, info/1, config/1, restart/1, pid/1, uptime/1, tasks/1]).
   
 names(Request) -> 
 	ContentData = case net_adm:names() of
@@ -82,6 +83,40 @@ info(Request) ->
 						 response_data = ems_schema:to_json(ContentData)}
 	}.
 
+config(Request) -> 
+	ContentData = lists:flatten(io_lib:format("~p", [ems_config:getConfig()])),
+	{ok, Request#request{code = 200, 
+						 content_type = <<"text/plain">>,
+						 response_data = ContentData}
+	}.
+
+restart(Request) -> 
+	init:restart(),
+	{ok, Request#request{code = 200, 
+						 response_data = ?OK_JSON}
+	}.
+
+pid(Request) -> 
+	ContentData = {ok, list_to_integer(os:getpid())},
+	{ok, Request#request{code = 200, 
+						 response_data = ems_schema:to_json(ContentData)}
+	}.
+
+uptime(Request) -> 
+	ContentData = {ok, ems_util:uptime_str()},
+	{ok, Request#request{code = 200, 
+						 response_data = ems_schema:to_json(ContentData)}
+	}.
+	
+tasks(Request) -> 
+	ContentData = {ok, statistics(total_active_tasks)},
+	{ok, Request#request{code = 200, 
+						 response_data = ems_schema:to_json(ContentData)}
+	}.
+	
+
+%% internal functions
+
 ranch_info() ->	ranch_info(ranch:info(), []).
 
 ranch_info([], R) -> R;
@@ -98,4 +133,3 @@ ranch_value_to_binary(V) when is_atom(V) -> erlang:atom_to_binary(V, utf8);
 ranch_value_to_binary(V) when is_list(V) -> list_to_binary(V);
 ranch_value_to_binary({A,B,C,D}) -> list_to_binary(io_lib:format("{~p,~p,~p,~p}", [A,B,C,D]));
 ranch_value_to_binary(V) -> V.
-

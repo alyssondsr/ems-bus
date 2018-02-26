@@ -1,0 +1,43 @@
+{
+    "name": "ems_user_dados_funcionais_loader_db",
+	"comment": "Catalog for ems_user_dados_funcionais_loader_db (update a cada 4 horas )",
+	"owner": "data_loader",
+	"version": "1.0.0",
+	"service" : "ems_data_loader:start",
+	"url": "/emsbus/ems_user_dados_funcionais_loader_db",
+	"async": false,
+	"type": "KERNEL",
+	"lang" : "erlang",
+	"update_checkpoint" : 14400000,
+	"datasource" : "ds_ems_user_loader",
+	"start_timeout" : 40000,
+	"middleware" : "ems_user_dados_funcionais_loader_middleware",
+	"pool_size" : 1,
+	"pool_max" : 1,
+	"enable" : false,
+	"sql_load" : 
+				"select distinct 
+					   u.UsuId as id, 
+					   Isnull(ca.categocargo, 4) as Type, 
+					   0 as SubType, 
+					   case 
+						 when c.dtdesliga < Getdate() then 0 
+						 else 1 
+					   end as Active, 
+					   df.MatSipes as Matricula 
+				from   bdacesso.dbo.tb_usuario u  
+					   join bdpessoa.dbo.tb_pessoa p 
+						 ON u.usupesidpessoa = p.pescodigopessoa 
+					   left join sipes.dbo.dadosfuncionais df 
+							  ON p.pescodigopessoa = df.pescodigopessoa 
+					   left join sipes.dbo.contratos c 
+							  ON df.matsipes = c.matsipes 
+					   left join sipes.dbo.cargos ca 
+							  ON c.codcargo = ca.codcargo 
+				where (c.DtDesliga is null or c.DtDesliga >= getdate())
+                ",
+
+			
+	"fields" : ["id", "type", "subtype", "active", "matricula"]
+				
+}

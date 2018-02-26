@@ -1,0 +1,38 @@
+{
+    "name": "ems_user_email_loader_db",
+	"comment": "Catalog for ems_user_email_loader_db",
+	"owner": "data_loader",
+	"version": "1.0.0",
+	"service" : "ems_data_loader:start",
+	"url": "/emsbus/ems_user_email_loader_db",
+	"async": false,
+	"type": "KERNEL",
+	"lang" : "erlang",
+	"update_checkpoint" : 180000,
+	"datasource" : "ds_ems_user_loader",
+	"start_timeout" : 16000,
+	"middleware" : "ems_user_email_loader_middleware",
+	"pool_size" : 1,
+	"pool_max" : 1,
+	"enable" : false,
+	"sql_load" : 
+				"select 
+				   em.EmaCodigo as id,
+				   pfe.PFmPesCodigoPessoa as codigo,
+				   lower(rtrim(em.EmaEmail)) as email 
+				from BDPessoa.dbo.TB_PessoaFisicaEmail pfe  
+					join BDPessoa.dbo.TB_Email em 
+						on pfe.PFmEmaCodigo = em.EmaCodigo",
+
+	"sql_update" : 
+				"select 
+				   em.EmaCodigo as id,
+				   pfe.PFmPesCodigoPessoa as codigo,
+				   lower(rtrim(em.EmaEmail)) as email 
+				from BDPessoa.dbo.TB_PessoaFisicaEmail pfe  
+					join BDPessoa.dbo.TB_Email em 
+						on pfe.PFmEmaCodigo = em.EmaCodigo 
+				where em.EmaDataAlteracao >= ? or em.EmaDataCadastramento >= ?",
+	"fields" : ["id", "codigo", "email"]
+				
+}

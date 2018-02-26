@@ -1,0 +1,285 @@
+[
+	{
+		"name" : "/authorize",
+		"comment": "OAuth 2.0",
+		"owner": "auth_user",
+		"version": "1.0.0",
+		"service" : "ems_oauth2_authorize:execute",
+		"url": "/authorize",
+		"type": "GET",
+		"result_cache" : 0,
+		"authorization" : "public",
+		"querystring": [
+			{
+				"name": "response_type",
+				"type": "string",
+				"default" : "0",
+				"comment": "The Expected response"
+			},
+			{
+				"name": "client_id",
+				"type": "string",
+				"comment": "The client identifier"
+			},
+			{
+				"name": "username",
+				"type": "string",
+				"comment": "The resource owner username"
+			},
+			{
+				"name": "password",
+				"type": "string",
+				"comment": "The resource owner password"
+			},
+			{
+				"name": "redirect_uri",
+				"type": "string",
+				"comment": "Redirect URI"
+			},
+			{
+				"name": "scope",
+				"type": "string",
+				"comment": "The scope of the access request"
+			},
+			{
+				"name": "secret",
+				"type": "string",
+				"comment": ""
+				},
+			{
+				"name": "code",
+				"type": "string",
+				"comment": ""
+				},
+			{
+				"name": "state",
+				"type": "string",
+				"comment": ""
+			}
+		],
+		"lang" : "erlang"
+	},
+
+	{
+		"name" : "/authorize",
+		"comment": "OAuth 2.0",
+		"owner": "auth_user",
+		"version": "1.0.0",
+		"service" : "ems_oauth2_authorize:execute",
+		"url": "/authorize",
+		"type": "POST",
+		"authorization" : "public",
+		"querystring": [
+			{
+				"name": "grant_type",
+				"type": "string",
+				"default" : "0",
+				"comment": "The grant type"
+			},
+			{
+				"name": "client_id",
+				"type": "string",
+				"comment": "The client identifier"
+			},
+			{
+				"name": "username",
+				"type": "string",
+				"comment": "The resource owner username"
+			},
+			{
+				"name": "password",
+				"type": "string",
+				"comment": "The resource owner password"
+			},
+			{
+				"name": "redirect_uri",
+				"type": "string",
+				"comment": "Redirect URI"
+			},
+			{
+				"name": "scope",
+				"type": "string",
+				"comment": "The scope of the access request"
+			},
+			{
+				"name": "client_secret",
+				"type": "string",
+				"comment": "The client secret"
+			},
+			{
+				"name": "secret",
+				"type": "string",
+				"comment": "The client secret"
+			},
+			{
+				"name": "code",
+				"type": "string",
+				"comment": "The authorization code"
+				},
+			{
+				"name": "state",
+				"type": "string",
+				"comment": "The state"
+				},
+			{
+				"name": "refresh_token",
+				"type": "string",
+				"comment": "The refresh token, which can be used to obtain new  access tokens using the same authorization grant"
+				}
+		],
+		"lang" : "erlang"
+	},
+	
+	{
+		"name" : "/code_request",
+		"comment": "Oauth 2.0",
+		"owner": "auth_user",
+		"version": "1.0.0",
+		"service" : "ems_oauth2_authorize:code_request",
+		"url": "/code_request",
+		"type": "GET",
+		"result_cache" : 0,
+		"authorization" : "public",
+		"querystring": [
+			{
+				"name": "client_id",
+				"type": "string",
+				"comment": "The client identifier"
+			},
+			{
+				"name": "username",
+				"type": "string",
+				"comment": "Username"
+			},
+			{
+				"name": "password",
+				"type": "string",
+				"comment": "User Password"
+			},			
+			{
+				"name": "redirect_uri",
+				"type": "string",
+				"comment": ""
+			},
+			{
+				"name": "scope",
+				"type": "string",
+				"comment": ""
+			},
+			{
+				"name": "code",
+				"type": "string",
+				"comment": ""
+				},
+			{
+				"name": "state",
+				"type": "string",
+				"comment": ""
+			}
+		],
+		"lang" : "erlang"
+	},
+	
+	{
+		"name" : "/callback1",
+		"comment": "Simulção de recurso",
+		"owner": "auth_user",
+		"version": "1.0.0",
+<<<<<<< HEAD:priv/catalog/emsbus/ems_oauth2.json
+		"service" : "oauth2mac_client:callback",
+		"url": "/callback1",
+=======
+		"service" : "ems_oauth2_client:callback",
+		"url": "/callback",
+>>>>>>> upstream/master:priv/catalog/emsbus/auth/ems_oauth2.json
+		"type": "GET",
+		"querystring": [
+			{
+				"name": "code",
+				"type": "string",
+				"comment": "Token de acesso"
+			},
+			{
+				"name": "error",
+				"type": "string",
+				"comment": "Descrição do erro"
+			}
+		],
+		"lang" : "erlang"
+	},
+	
+	{
+<<<<<<< HEAD:priv/catalog/emsbus/ems_oauth2.json
+		"name" : "/callback",
+		"comment": "Simulção de recurso",
+		"owner": "oauth2ems",
+		"version": "1",
+		"service" : "oauth2ems_client:callback",
+		"url": "/callback",
+		"type": "GET",
+=======
+		"name" : "/resource",
+		"comment": "Get resourge",
+		"owner": "auth_user",
+		"version": "1.0.0",
+		"service" : "ems_oauth2_recurso:execute",
+		"url": "/resource",
+		"type": "POST",
+		"authorization": "oauth2",
+>>>>>>> upstream/master:priv/catalog/emsbus/auth/ems_oauth2.json
+		"querystring": [
+			{
+				"name": "code",
+				"type": "string",
+				"comment": "Token de acesso"
+			}
+		],
+		"lang" : "erlang"
+	},
+
+	{
+<<<<<<< HEAD:priv/catalog/emsbus/ems_oauth2.json
+		"name" : "/authn",
+		"comment": "Autenticacao de dono do recurso",
+		"owner": "oauth2ems",
+		"version": "1",
+		"service" : "oauth2ems_authorize:authn_user",
+		"url": "/authn",
+		"type": "GET",
+		"lang" : "erlang"
+	},
+	
+	{
+		"name": "/authz",
+		"comment": "Pagina de login ErlangMS",
+		"owner": "auth",
+		"version": "1.0.0",
+		"service" : "ems_static_file_service:execute",
+		"url": "/login/authz.html",
+		"use_re" : true,
+		"path" : "{{ authz_path }}",
+		"type": "GET",
+		"authorization" : "public",
+		"cache_control" : "no-cache",
+		"expires_minute" : 0,
+		"lang" : "erlang"
+=======
+		"name" : "/recurso",
+		"comment": "Obter o recurso",
+		"owner": "auth_user",
+		"version": "1.0.0",
+		"service" : "ems_oauth2_recurso:execute",
+		"url": "/recurso",
+		"type": "POST",
+		"authorization": "oauth2",
+		"querystring": [
+			{
+				"name": "token",
+				"type": "string",
+				"comment": "Token de acesso"
+			}
+		],
+		"lang" : "erlang"
+>>>>>>> upstream/master:priv/catalog/emsbus/auth/ems_oauth2.json
+	}
+]

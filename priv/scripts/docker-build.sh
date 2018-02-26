@@ -19,6 +19,8 @@
 #
 ########################################################################################################
 
+clear
+
 CURRENT_DIR=$(pwd)
 VERSION_SCRIPT="1.0.0"
 
@@ -29,21 +31,25 @@ help() {
 	echo "how to use: sudo ./build.sh"
 	echo ""
 	echo "Additional parameters:"
-	echo "  --app              -> name of docker app"
+	echo "  --app                        -> name of docker app"
 	echo "  --tag                        -> Build specific gitlab tag version of project. The default is the lastest tag"
-	echo "  --base_url_git_project    -> base url of gitlab. The default is http://servicosssi.unb.br/ssi"
-	echo "  --app_url_git             -> project url to build. The default is http://servicosssi.unb.br/ssi/[project_name]_frontend.git"
+	echo "  --base_url_git_project       -> base url of gitlab. The default is http://servicosssi.unb.br/ssi"
+	echo "  --app_url_git                -> project url to build. The default is http://servicosssi.unb.br/ssi/[project_name]_frontend.git"
 	echo "  --registry                   -> registry server"
-	echo "  --skip_build                 -> skip build"
-	echo "  --skip_push	               -> skip push registry"
-	echo "  --skip_check	               -> skip check requirements"
-	echo "  --npm_version	               -> check npm version to this"
-	echo "  --node_version	       -> check node version to this"
-	echo "  --docker_version	       -> check docker version to this"
-	echo "  --git_user	 	       -> git user"
-	echo "  --git_passwd	 	       -> git passwd"
-	echo "  --cache_node_modules         -> cache node_modules for speed (development use only!)"
+	echo "  --skip_build                 -> skip build. Default is false"
+	echo "  --skip_push                  -> skip push registry. Default is true"
+	echo "  --skip_check                 -> skip check requirements. Default is false"
+	echo "  --npm_version                -> check npm version to this"
+	echo "  --node_version               -> check node version to this"
+	echo "  --docker_version             -> check docker version to this"
+	echo "  --git_user                   -> git user"
+	echo "  --git_passwd                 -> git passwd"
+	echo "  --cache_node_modules         -> cache node_modules for speed"
 	echo "  --keep_stage                 -> does not delete stage area after build"
+	echo "  --push                       -> push to registry. The same as --skip_push=false"
+	echo "  --mode_build                 -> build npm project in mode pass in variable"
+	echo "  --http_port                  -> change port http frontend. Default is 3000"
+	echo "  --https_port                 -> change port https frontend. Default is 4000"
 	echo
 	echo "Obs.: Use only com root or sudo!"
 	cd $CURRENT_DIR
@@ -114,6 +120,10 @@ ERLANGMS_RELEASE_URL="https://github.com/erlangms/releases/raw/master"
 # Onde está o template docker utilizado por este build
 ERLANGMS_DOCKER_GIT_URL="https://github.com/erlangMS/docker"
 
+# variável opcional para dizer qual modo de build da aplicação
+# deixa em branço para pedir na execução do build
+MODE_BUILD=""
+
 
 # Registry server daemon to catalog images
 REGISTRY_IP="127.0.0.1"
@@ -122,7 +132,7 @@ REGISTRY_SERVER="$REGISTRY_IP:$REGISTRY_PORT"
 
 # Flag para controle do que vai ser feito
 SKIP_BUILD="false"
-SKIP_PUSH="false"
+SKIP_PUSH="true"
 SKIP_CHECK="false"
 
 # Git credentials
@@ -157,7 +167,7 @@ le_setting () {
 	KEY=$1
 	DEFAULT=$2
 	# Lê o valor configuração, remove espaços a esquerda e faz o unquoted das aspas duplas
-	RESULT=$(egrep -i "^$KEY" $CONFIG_ARQ | cut -d"=" -f2 | sed -r 's/^ *//' | sed -r 's/^\"?(\<.*\>\$?)\"?$/\1/')
+	RESULT=$(egrep -i "^$KEY" $CONFIG_ARQ 2> /dev/null | cut -d"=" -f2 | sed -r 's/^ *//' | sed -r 's/^\"?(\<.*\>\$?)\"?$/\1/')
 	if [ -z "$RESULT" ] ; then
 		echo $DEFAULT
 	else
@@ -313,7 +323,7 @@ build_image(){
 		# Quando o flag CACHE_NODE_MODULES for true, vamos usar uma pasta de cache para node_modules e 
 		# criar um hard link. Isso vai acelerar e muito!!! 
 		if [ "$CACHE_NODE_MODULES" = "true" ]; then
-			echo "node_modules cache enabled (development use only)"
+			echo "node_modules cache enabled"
 			NODE_MODULES_CACHE_PATH="/tmp/erlangms/build/node_modules"
 			if [ -d NODE_MODULES_CACHE_PATH ]; then
 				echo "Let go make drink, this will take time!!!"
@@ -337,8 +347,8 @@ build_image(){
 
 
 		# ***** npm run build *****
-		npm run build
-		echo "Return npm build: $?"
+		npm run build:$MODE_BUILD
+		echo "Return npm build:$MODE_BUILD $?"
 		if [ "$?" != "0" ]; then
 			die "An error occurred in the npm run build command. Build canceled."
 		fi
@@ -583,6 +593,8 @@ for P in $*; do
 		GIT_PASSWD="$(echo $P | cut -d= -f2)"
 	elif [[ "$P" =~ ^--base_url_git_projects=.+$ ]]; then
 		GIT_BASE_URL_PROJECTS="$(echo $P | cut -d= -f2)"
+	elif [[ "$P" =~ ^--mode_build=.+$ ]]; then
+		MODE_BUILD="$(echo $P | cut -d= -f2)"
 	elif [ "$P" = "--cache_node_modules" ]; then
 		CACHE_NODE_MODULES="true"
 	elif [ "$P" = "--keep_stage" ]; then
@@ -591,6 +603,8 @@ for P in $*; do
 		HTTP_PORT="$(echo $P | cut -d= -f2)"
 	elif [[ "$P" =~ ^--https_port=.+$ ]]; then
 		HTTPS_PORT="$(echo $P | cut -d= -f2)"
+	elif [ "$P" = "--push" ]; then
+		SKIP_PUSH="false"
 	elif [[ "$P" =~ ^--help$ ]]; then
 		help
 	fi
@@ -660,6 +674,12 @@ if [ -z "$GIT_CHECKOUT_TAG" ]; then
 else
 	echo "Frontend version: $GIT_CHECKOUT_TAG"
 fi
+
+# Lê o modo de build
+while [[ ! $MODE_BUILD =~ (dev|prod) ]]; do
+	printf 'Build mode (dev|prod): '
+	read MODE_BUILD
+done
 
 
 prepare_project_to_build
