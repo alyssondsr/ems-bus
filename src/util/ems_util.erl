@@ -1564,7 +1564,7 @@ encode_request_cowboy(CowboyReq, WorkerSend, HttpHeaderDefault, HttpHeaderOption
 						QuerystringMap0 = #{};
 					"?" ++ Querystring -> 
 						PosInterrogacao = string:chr(Url1, $?),
-						Url2 = remove_ult_backslash_url(string:slice(Url1, 0, PosInterrogacao-2)),
+						Url2 = remove_ult_backslash_url(string:slice(Url1, 0, PosInterrogacao-1)),
 						QuerystringBin = list_to_binary(Querystring),
 						QuerystringMap0 = parse_querystring([Querystring])
 				end;
