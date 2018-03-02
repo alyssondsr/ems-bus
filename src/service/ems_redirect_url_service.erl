@@ -17,18 +17,17 @@ execute(Request = #request{service = #service{redirect_url = RedirectUrl},
 						   querystring = Querystring,
 						   payload = Payload,
 						   accept = Accept,
-						   content_type = ContentType,
 						   cache_control = CacheControl,
 						   if_modified_since = IfModifiedSinceReq, 
 						   if_none_match = IfNoneMatchReq,
-						   authorization = Authorization}) -> 
+						   authorization = Authorization,
+						   response_header = ResponseHeader}) -> 
 	RedirectUrl2 = iolist_to_binary([RedirectUrl, <<"?">>, Querystring]),
 	?DEBUG("Redirect to ~p.", [RedirectUrl2]),
 	{ok, Request#request{code = 302, 
 							 response_data = Payload,
-							 response_header = #{
+							 response_header = ResponseHeader#{
 													<<"location">> => RedirectUrl2,
-													<<"content-type">> => format_header(ContentType),
 													<<"cache-control">> => format_header(CacheControl),
 													<<"If-None-Match">> => format_header(IfNoneMatchReq),
 													<<"If-Modified-Since">> => format_header(IfModifiedSinceReq),

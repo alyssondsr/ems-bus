@@ -12,8 +12,7 @@
 		"datasource" : {
 			"type" : "mnesia",
 			"table_name" : ["client_db", "client_fs"],
-			"fields" : ["id", "name", "active"],
-			"remap_fields" : [{"codigo" : "id"}]
+			"fields" : ["id", "name", "active"]
 		},
 		"schema_in" : "client",
 		"schema_out" : "client",
@@ -32,8 +31,7 @@
 		"datasource" : {
 			"type" : "mnesia",
 			"table_name" : ["client_db", "client_fs"],
-			"fields" : ["id", "name", "active"],
-			"remap_fields" : [{"codigo" : "id"}]
+			"fields" : ["id", "name", "active"]
 		},
 		"schema_in" : "client",
 		"schema_out" : "client",
@@ -69,61 +67,6 @@
 					"comment": "Campos que devem ser ordenados"
 				}
 			]	
-	},
-	
-	{	
-		"name": "/auth/client/loader/sync",
-		"comment": "Syncronize client database",
-		"owner": "auth_client",
-		"service" : "client_service:loader_sync",
-		"url": "/auth/client/loader/sync",
-		"type": "POST",
-		"authorization": "basic",
-		"lang" : "erlang"
-	},
-	
-	{	
-		"name": "/auth/client/loader/last_update",
-		"comment": "Get last update of client database",
-		"owner": "auth_client",
-		"service" : "client_service:loader_last_update",
-		"url": "/auth/client/loader/last_update",
-		"type": "GET",
-		"authorization": "basic",
-		"lang" : "erlang"
-	},
-	
-	{	
-		"name": "/auth/client/loader/pause",
-		"comment": "Stop client database synchronization",
-		"owner": "auth_client",
-		"service" : "client_service:loader_pause",
-		"url": "/auth/client/loader/pause",
-		"type": "POST",
-		"authorization": "basic",
-		"lang" : "erlang"
-	},
-	
-	{	
-		"name": "/auth/client/loader/resume",
-		"comment": "Resume client database synchronization",
-		"owner": "auth_client",
-		"service" : "client_service:loader_resume",
-		"url": "/auth/client/loader/resume",
-		"type": "POST",
-		"authorization": "basic",
-		"lang" : "erlang"
-	},
-	
-	{	
-		"name": "/auth/client/loader/size_table",
-		"comment": "Get client database size",
-		"owner": "auth_client",
-		"service" : "client_service:loader_size_table",
-		"url": "/auth/client/loader/size_table",
-		"type": "GET",
-		"authorization": "basic",
-		"lang" : "erlang"
 	}
 	
 ]

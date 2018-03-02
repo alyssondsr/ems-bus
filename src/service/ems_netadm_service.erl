@@ -12,7 +12,8 @@
 -include("include/ems_schema.hrl").
 
 -export([names/1, world/1, hostfile/1, hostname/1, localhost/1, memory/1, timestamp/1, 
-		 threads/1, info/1, config/1, restart/1, pid/1, uptime/1, tasks/1]).
+		 threads/1, info/1, config/1, restart/1, pid/1, uptime/1, tasks/1,
+		 version/1, servername/1]).
   
 names(Request) -> 
 	ContentData = case net_adm:names() of
@@ -86,7 +87,7 @@ info(Request) ->
 config(Request) -> 
 	ContentData = lists:flatten(io_lib:format("~p", [ems_config:getConfig()])),
 	{ok, Request#request{code = 200, 
-						 content_type = <<"text/plain">>,
+						 content_type_out = <<"text/plain">>,
 						 response_data = ContentData}
 	}.
 
@@ -110,6 +111,18 @@ uptime(Request) ->
 	
 tasks(Request) -> 
 	ContentData = {ok, statistics(total_active_tasks)},
+	{ok, Request#request{code = 200, 
+						 response_data = ems_schema:to_json(ContentData)}
+	}.
+	
+version(Request) -> 
+	ContentData = {ok, ems_util:version()},
+	{ok, Request#request{code = 200, 
+						 response_data = ems_schema:to_json(ContentData)}
+	}.
+
+servername(Request) -> 
+	ContentData = {ok, ems_util:server_name()},
 	{ok, Request#request{code = 200, 
 						 response_data = ems_schema:to_json(ContentData)}
 	}.

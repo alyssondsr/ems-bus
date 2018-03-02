@@ -18,30 +18,18 @@
 
 %% Client API
 -export([error/1, error/2, 
-		 info/1, info/2, 
-		 warn/1, warn/2, 
-		 debug/1, debug/2, debug2/1, debug2/2, in_debug/0,
-		 sync/0, 
-		 log_request/1,
-		 mode_debug/1,
-		 set_level/1,
-		 show_response/1,
-		 log_file_tail/0,
-		 log_file_tail/1,
-		 log_file_head/0,
-		 log_file_head/1,
-		 log_file_name/0,
-		 format_info/1, 
-		 format_info/2,
-		 format_warn/1, 
-		 format_warn/2,
-		 format_error/1, 
-		 format_error/2,
-		 format_debug/1, 
-		 format_debug/2,
- 		 format_alert/1, 
-		 format_alert/2,
-		 checkpoint/0
+		 info/1, info/2, warn/1, warn/2, debug/1, debug/2, debug2/1, 
+		 debug2/2, in_debug/0, sync/0, log_request/1, mode_debug/1, 
+		 set_level/1, 
+		 show_response/1, show_response/2, 
+		 show_payload/1, show_payload/2, 
+		 show_response_url/2, show_payload_url/2,
+		 show_response_url/3, show_payload_url/3,
+		 log_file_tail/0, log_file_tail/1, 
+		 log_file_head/0, log_file_head/1, log_file_name/0, 
+		 format_info/1, format_info/2, format_warn/1, format_warn/2, 
+		 format_error/1, format_error/2, format_debug/1, 
+		 format_debug/2, format_alert/1, format_alert/2, checkpoint/0
 ]).
 
 
@@ -52,18 +40,23 @@
 
 
 %  Armazena o estado do ems_logger. 
--record(state, {buffer = [],             				% The messages go first to a buffer subsequently to the log file        
-			    buffer_tela = [],        				% The messages go first to a buffer subsequently to screen
-			    flag_checkpoint_sync_buffer = false,    % checkpoint to unload the buffer to the log file
-			    flag_checkpoint_screen = false, 			% checkpoint to unload the screen buffer
-				log_file_checkpoint,      				% timeout archive log checkpoing
-				log_file_name,		      				% log file name
-				log_file_handle,						% IODevice of file
-				log_file_max_size,						% Max file size in KB
-				level = info,							% level of errors
-				show_response = false,					% show response of request
-				ult_msg,								% last print message
-				ult_reqhash
+-record(state, {log_buffer = [],             				% The messages go first to a log_buffer subsequently to the log file        
+			    log_log_buffer_screen = [],        			% The messages go first to a log_buffer subsequently to screen
+			    flag_checkpoint_sync_log_buffer = false,    % checkpoint to unload the log_buffer to the log file
+			    flag_checkpoint_screen = false, 			% checkpoint to unload the screen log_buffer
+				log_file_checkpoint,      					% timeout archive log checkpoing
+				log_file_name,		      					% log file name
+				log_file_handle,							% IODevice of file
+				log_file_max_size,							% Max file size in KB
+				log_level = info,							% log_level of printable messages
+				log_show_response = false,					% show response of request
+				log_show_response_max_length,				% show response if content length < show_response_max_length
+				log_show_payload = false,					% show payload of request
+				log_show_payload_max_length,				% show payload if content length < show_response_max_length
+				log_show_response_url_list = [],			% show response if url in 
+				log_show_payload_url_list = [],				% show payload if url in 
+				log_ult_msg,								% last print message
+				log_ult_reqhash 							% last reqhash of print message
  			   }). 
 
 
@@ -139,22 +132,72 @@ mode_debug(false) ->
 	ets:insert(debug_ets, {debug, false}).
 
 sync() ->
-	info("ems_logger sync buffer."),
-	gen_server:call(?SERVER, sync_buffer). 		
+	info("ems_logger sync log_buffer."),
+	gen_server:call(?SERVER, sync_log_buffer). 		
 
 log_request(Request) -> 
 	gen_server:cast(?SERVER, {log_request, Request}). 
 
 set_level(Level) -> 
-	info("ems_logger set level ~p.", [Level]),
+	info("ems_logger set log_level ~p.", [Level]),
 	gen_server:cast(?SERVER, {set_level, Level}). 
 
-show_response(Value) when Value == true -> 
+show_response(true) -> 
 	info("ems_logger set show response."),
-	gen_server:cast(?SERVER, {show_response, Value});
+	gen_server:cast(?SERVER, {show_response, true, ?LOG_SHOW_RESPONSE_MAX_LENGTH});
 show_response(_) -> 
 	info("ems_logger unset show response."),
-	gen_server:cast(?SERVER, {show_response, false}). 
+	gen_server:cast(?SERVER, {show_response, false, ?LOG_SHOW_RESPONSE_MAX_LENGTH}). 
+
+show_response(true, MaxLength) -> 
+	info("ems_logger set show response."),
+	gen_server:cast(?SERVER, {show_response, true, MaxLength});
+show_response(_, MaxLength) -> 
+	info("ems_logger unset show response."),
+	gen_server:cast(?SERVER, {show_response, false, MaxLength}). 
+
+show_payload(true) -> 
+	info("ems_logger set show payload."),
+	gen_server:cast(?SERVER, {show_payload, true, ?LOG_SHOW_PAYLOAD_MAX_LENGTH});
+show_payload(_) -> 
+	info("ems_logger unset show payload."),
+	gen_server:cast(?SERVER, {show_payload, false, ?LOG_SHOW_PAYLOAD_MAX_LENGTH}). 
+
+show_payload(true, MaxLength) -> 
+	info("ems_logger set show payload."),
+	gen_server:cast(?SERVER, {show_payload, true, MaxLength});
+show_payload(_, MaxLength) -> 
+	info("ems_logger unset show payload."),
+	gen_server:cast(?SERVER, {show_payload, false, MaxLength}). 
+
+
+show_response_url(true, Url) -> 
+	info("ems_logger set show response."),
+	gen_server:cast(?SERVER, {show_response, true, ?LOG_SHOW_PAYLOAD_MAX_LENGTH, Url});
+show_response_url(_, Url) -> 
+	info("ems_logger unset show response."),
+	gen_server:cast(?SERVER, {show_response, false, ?LOG_SHOW_PAYLOAD_MAX_LENGTH, Url}). 
+
+show_payload_url(true, Url) -> 
+	info("ems_logger set show payload."),
+	gen_server:cast(?SERVER, {show_payload, true, ?LOG_SHOW_PAYLOAD_MAX_LENGTH, Url});
+show_payload_url(_, Url) -> 
+	info("ems_logger unset show payload."),
+	gen_server:cast(?SERVER, {show_payload, false, ?LOG_SHOW_PAYLOAD_MAX_LENGTH, Url}). 
+
+show_response_url(true, MaxLength, Url) -> 
+	info("ems_logger set show response."),
+	gen_server:cast(?SERVER, {show_response, true, MaxLength, Url});
+show_response_url(_, MaxLength, Url) -> 
+	info("ems_logger unset show response."),
+	gen_server:cast(?SERVER, {show_response, false, MaxLength, Url}). 
+
+show_payload_url(true, MaxLength, Url) -> 
+	info("ems_logger set show payload."),
+	gen_server:cast(?SERVER, {show_payload, true, MaxLength, Url});
+show_payload_url(_, MaxLength, Url) -> 
+	info("ems_logger unset show payload."),
+	gen_server:cast(?SERVER, {show_payload, false, MaxLength, Url}). 
 
 log_file_head() ->
 	gen_server:call(?SERVER, {log_file_head, 80}). 		
@@ -206,10 +249,15 @@ init(#service{properties = Props}) ->
 	Conf = ems_config:getConfig(),
 	Debug = Conf#config.ems_debug,
 	mode_debug(Debug),
-	State = checkpoint_arquive_log(#state{log_file_checkpoint = Checkpoint,
-										  log_file_max_size = LogFileMaxSize,
-										  log_file_handle = undefined}, false),
-    {ok, State}.
+	State = #state{log_file_checkpoint = Checkpoint,
+				   log_file_max_size = LogFileMaxSize,
+				   log_file_handle = undefined,
+		 		   log_show_response = Conf#config.log_show_response,
+				   log_show_payload = Conf#config.log_show_payload,
+				   log_show_response_max_length = Conf#config.log_show_response_max_length,
+ 				   log_show_payload_max_length = Conf#config.log_show_payload_max_length},
+	State2 = checkpoint_arquive_log(State, false),
+    {ok, State2}.
     
 handle_cast(shutdown, State) ->
     {stop, normal, State};
@@ -227,14 +275,43 @@ handle_cast({log_request, Request}, State) ->
 	{noreply, NewState};
 
 handle_cast({set_level, Level}, State) ->
-	{noreply, State#state{level = Level}};
+	{noreply, State#state{log_level = Level}};
 
-handle_cast({show_response, Value}, State) ->
-	{noreply, State#state{show_response = Value}};
+handle_cast({show_response, Value, MaxLength}, State) ->
+	{noreply, State#state{log_show_response = Value,
+						  log_show_response_max_length = MaxLength,
+						  log_show_response_url_list = case Value of
+															true -> State#state.log_show_response_url_list;
+															_ -> []
+													   end}};
 
-handle_cast(sync_buffer, State) ->
-	State2 = sync_buffer_screen(State),
-	State3 = sync_buffer(State2),
+handle_cast({show_payload, Value, MaxLength}, State) ->
+	{noreply, State#state{log_show_payload = Value,
+						  log_show_payload_max_length = MaxLength,
+						  log_show_payload_url_list = case Value of
+															true -> State#state.log_show_payload_url_list;
+															_ -> []
+													   end}};
+
+handle_cast({show_response, Value, MaxLength, Url}, State) ->
+	{noreply, State#state{log_show_response = Value,
+						  log_show_response_max_length = MaxLength,
+						  log_show_response_url_list = case Value of
+															true -> [Url|State#state.log_show_response_url_list];
+															_ -> lists:delete(Url, State#state.log_show_response_url_list)
+													   end}};
+
+handle_cast({show_payload, Value, MaxLength, Url}, State) ->
+	{noreply, State#state{log_show_payload = Value,
+						  log_show_payload_max_length = MaxLength,
+						  log_show_payload_url_list = case Value of
+														   true -> [Url|State#state.log_show_payload_url_list];
+														   _ -> lists:delete(Url, State#state.log_show_payload_url_list)
+													  end}};
+
+handle_cast(sync_log_buffer, State) ->
+	State2 = sync_log_buffer_screen(State),
+	State3 = sync_log_buffer(State2),
 	{noreply, State3}.
 
 handle_call({write_msg, Tipo, Msg}, _From, State) ->
@@ -245,8 +322,8 @@ handle_call({write_msg, Tipo, Msg, Params}, _From, State) ->
 	NewState = write_msg(Tipo, Msg, Params, State),
 	{reply, ok, NewState};
 
-handle_call(sync_buffer, _From, State) ->
-	NewState = sync_buffer(State),
+handle_call(sync_log_buffer, _From, State) ->
+	NewState = sync_log_buffer(State),
 	{reply, ok, NewState};
 
 handle_call(log_file_name, _From, State = #state{log_file_name = FilenameLog}) ->
@@ -261,11 +338,11 @@ handle_call({log_file_tail, N}, _From, State) ->
 	{reply, Result, State}.
 
 handle_info(checkpoint_tela, State) ->
-   NewState = sync_buffer_screen(State),
+   NewState = sync_log_buffer_screen(State),
    {noreply, NewState};
 
 handle_info(checkpoint, State) ->
-   NewState = sync_buffer(State),
+   NewState = sync_log_buffer(State),
    {noreply, NewState};
 
 handle_info(checkpoint_archive_log, State) ->
@@ -361,10 +438,10 @@ close_filename_device(IODevice, LogFilename) ->
 	?DEBUG("ems_logger close log file ~p.", [LogFilename]),
 	file:close(IODevice).
 
-set_timeout_for_sync_buffer(#state{flag_checkpoint_sync_buffer = false, log_file_checkpoint=Timeout}) ->    
+set_timeout_for_sync_log_buffer(#state{flag_checkpoint_sync_log_buffer = false, log_file_checkpoint=Timeout}) ->    
 	erlang:send_after(Timeout, self(), checkpoint);
 
-set_timeout_for_sync_buffer(_State) ->    
+set_timeout_for_sync_log_buffer(_State) ->    
 	ok.
 
 set_timeout_for_sync_tela(#state{flag_checkpoint_screen = false}) ->    
@@ -376,7 +453,7 @@ set_timeout_for_sync_tela(_State) ->
 set_timeout_archive_log_checkpoint() ->    
 	erlang:send_after(?LOG_ARCHIVE_CHECKPOINT, self(), checkpoint_archive_log).
 
-write_msg(Tipo, Msg, State = #state{level = Level, ult_msg = UltMsg})  ->
+write_msg(Tipo, Msg, State = #state{log_level = Level, log_ult_msg = UltMsg})  ->
 	%% test overflow duplicated messages
 	case UltMsg == undefined orelse UltMsg =/= Msg of
 		true ->
@@ -396,38 +473,38 @@ write_msg(Tipo, Msg, State = #state{level = Level, ult_msg = UltMsg})  ->
 			end,
 			case (Level == error andalso Tipo /= error) andalso (Tipo /= debug) of
 				true ->
-					case length(State#state.buffer) == 200 of
+					case length(State#state.log_buffer) == 200 of
 						true -> 
-							ems_db:inc_counter(ems_logger_immediate_sync_buffer),
-							State2 = sync_buffer_screen(State),
-							State2#state{buffer = [Msg1|State#state.buffer], 
-										 flag_checkpoint_sync_buffer = true,
-										 ult_msg = Msg};
+							ems_db:inc_counter(ems_logger_immediate_sync_log_buffer),
+							State2 = sync_log_buffer_screen(State),
+							State2#state{log_buffer = [Msg1|State#state.log_buffer], 
+										 flag_checkpoint_sync_log_buffer = true,
+										 log_ult_msg = Msg};
 						false -> 
-							set_timeout_for_sync_buffer(State),
-							State#state{buffer = [Msg1|State#state.buffer], 
-									    flag_checkpoint_sync_buffer = true,
-										ult_msg = Msg}
+							set_timeout_for_sync_log_buffer(State),
+							State#state{log_buffer = [Msg1|State#state.log_buffer], 
+									    flag_checkpoint_sync_log_buffer = true,
+										log_ult_msg = Msg}
 					end;
 				false ->
-					case length(State#state.buffer) == 200 of
+					case length(State#state.log_buffer) == 200 of
 						true -> 
-							ems_db:inc_counter(ems_logger_immediate_sync_buffer),
-							State2 = sync_buffer_screen(State),
-							State3 = sync_buffer(State2),
-							State3#state{buffer = [Msg1|State#state.buffer], 
-										 buffer_tela = [Msg1|State#state.buffer_tela], 
-										 flag_checkpoint_sync_buffer = true, 
+							ems_db:inc_counter(ems_logger_immediate_sync_log_buffer),
+							State2 = sync_log_buffer_screen(State),
+							State3 = sync_log_buffer(State2),
+							State3#state{log_buffer = [Msg1|State#state.log_buffer], 
+										 log_log_buffer_screen = [Msg1|State#state.log_log_buffer_screen], 
+										 flag_checkpoint_sync_log_buffer = true, 
 										 flag_checkpoint_screen = true,
-										 ult_msg = Msg};
+										 log_ult_msg = Msg};
 						false ->
-							set_timeout_for_sync_buffer(State),
+							set_timeout_for_sync_log_buffer(State),
 							set_timeout_for_sync_tela(State),
-							State#state{buffer = [Msg1|State#state.buffer], 
-										buffer_tela = [Msg1|State#state.buffer_tela], 
-										flag_checkpoint_sync_buffer = true, 
+							State#state{log_buffer = [Msg1|State#state.log_buffer], 
+										log_log_buffer_screen = [Msg1|State#state.log_log_buffer_screen], 
+										flag_checkpoint_sync_log_buffer = true, 
 										flag_checkpoint_screen = true,
-										ult_msg = Msg}
+										log_ult_msg = Msg}
 					end
 			end;
 		false -> 
@@ -440,27 +517,27 @@ write_msg(Tipo, Msg, Params, State) ->
 	write_msg(Tipo, Msg1, State).
 	
 	
-sync_buffer_screen(State = #state{buffer_tela = []}) -> State;
-sync_buffer_screen(State) ->
-	ems_db:inc_counter(ems_logger_sync_buffer_screen),
-	Msg = lists:reverse(State#state.buffer_tela),
+sync_log_buffer_screen(State = #state{log_log_buffer_screen = []}) -> State;
+sync_log_buffer_screen(State) ->
+	ems_db:inc_counter(ems_logger_sync_log_buffer_screen),
+	Msg = lists:reverse(State#state.log_log_buffer_screen),
 	try
 		io:format(Msg)
 	catch
 		_:_ -> ok
 	end,
-	State#state{buffer_tela = [], flag_checkpoint_screen = false, ult_msg = undefined, ult_reqhash = undefined}.
+	State#state{log_log_buffer_screen = [], flag_checkpoint_screen = false, log_ult_msg = undefined, log_ult_reqhash = undefined}.
 
 
-sync_buffer(State = #state{buffer = Buffer,
+sync_log_buffer(State = #state{log_buffer = Buffer,
 						   log_file_name = CurrentLogFilename,
 						   log_file_max_size = LogFileMaxSize,
 						   log_file_handle = CurrentIODevice}) ->
-	ems_db:inc_counter(ems_logger_sync_buffer),
+	ems_db:inc_counter(ems_logger_sync_log_buffer),
 	FileSize = filelib:file_size(CurrentLogFilename),
 	case FileSize > LogFileMaxSize of 	% check limit log file max size
 		true -> 
-			ems_db:inc_counter(ems_logger_sync_buffer_file_size_exceeded),
+			ems_db:inc_counter(ems_logger_sync_log_buffer_file_size_exceeded),
 			ems_logger:info("ems_logger is writing to a log file that has already exceeded the allowed limit."),
 			State2 = checkpoint_arquive_log(State, true);
 		false ->
@@ -468,27 +545,27 @@ sync_buffer(State = #state{buffer = Buffer,
 				true ->
 					close_filename_device(CurrentIODevice, CurrentLogFilename),
 					{ok, LogFilename, IODevice} = open_filename_device(),
-					State2 = State#state{buffer = [], 
+					State2 = State#state{log_buffer = [], 
 										 log_file_handle = IODevice,
 										 log_file_name = LogFilename,
-										 flag_checkpoint_sync_buffer = false};
+										 flag_checkpoint_sync_log_buffer = false};
 				false ->
-					State2 = State#state{buffer = [], 
-										 flag_checkpoint_sync_buffer = false}
+					State2 = State#state{log_buffer = [], 
+										 flag_checkpoint_sync_log_buffer = false}
 			end
 	end,
 	Msg = lists:reverse(Buffer),
 	case file:write(State2#state.log_file_handle, Msg) of
 		ok -> ok;
 		{error, enospc} -> 
-			ems_db:inc_counter(ems_logger_sync_buffer_enospc),
+			ems_db:inc_counter(ems_logger_sync_log_buffer_enospc),
 			ems_logger:error("ems_logger does not have disk storage space to write to the log files.");
 		{error, ebadf} ->
-			ems_db:inc_counter(ems_logger_sync_buffer_ebadf),
+			ems_db:inc_counter(ems_logger_sync_log_buffer_ebadf),
 			ems_logger:error("ems_logger does no have log file descriptor valid.");
 		{error, Reason} ->
-			ems_db:inc_counter(ems_logger_sync_buffer_error),
-			ems_logger:error("ems_logger was unable to unload the log buffer cache. Reason: ~p.", [Reason])
+			ems_db:inc_counter(ems_logger_sync_log_buffer_error),
+			ems_logger:error("ems_logger was unable to unload the log log_buffer cache. Reason: ~p.", [Reason])
 	end,
 	State2.
 
@@ -497,9 +574,11 @@ do_log_request(#request{rid = RID,
 						req_hash = ReqHash,
 						type = Type,
 						uri = Uri,
+						url = Url,
+						url_masked = UrlMasked,
 						version = Version,
 						content_type_in = ContentTypeIn,
-						content_type = ContentType,
+						content_type_out = ContentTypeOut,
 						content_length = ContentLength,
 						accept = Accept,
 						ip_bin = IpBin,
@@ -530,103 +609,147 @@ do_log_request(#request{rid = RID,
 						oauth2_access_token = AccessToken,
 						oauth2_refresh_token = RefreshToken
 			  }, 
-			  State = #state{show_response = ShowResponse, ult_reqhash = UltReqHash}) ->
+			  State = #state{log_show_response = ShowResponse, 
+							 log_show_response_max_length = ShowResponseMaxLength, 
+							 log_show_payload = ShowPayload, 
+							 log_show_payload_max_length = ShowPayloadMaxLength, 
+							 log_ult_reqhash = UltReqHash,
+							 log_show_response_url_list = ShowResponseUrlList,					
+							 log_show_payload_url_list = ShowPayloadUrlList}) ->
 	try
 		case UltReqHash == undefined orelse UltReqHash =/= ReqHash of
 			true ->
-				Texto1 = 
-					  iolist_to_binary([
+				case Service of
+					undefined -> 
+						ServiceService = <<>>,
+						ResultCacheService = 0,
+						AuthorizationService = public,
+						ShowResponseService = false,
+						ShowPayloadService = false;
+					_ ->
+						ServiceService = Service#service.service,
+						ResultCacheService = Service#service.result_cache,
+						AuthorizationService = Service#service.authorization,
+						ShowResponseService = Service#service.log_show_response,
+						ShowPayloadService = Service#service.log_show_payload
+				end,
+				TextData = 
+					[
 					   Type, <<" ">>,
 					   Uri, <<" ">>,
 					   atom_to_binary(Version, utf8), <<" ">>,
 					   <<" {\n\tRID: ">>,  integer_to_binary(RID),
 					   <<"  (ReqHash: ">>, integer_to_binary(ReqHash), <<")">>, 
+					   case UrlMasked of
+							true -> [<<"\n\tUrl: ">>, Url];
+							false -> <<>>
+					   end,
 					   <<"\n\tAccept: ">>, Accept,
-					   <<"\n\tContent-Type in: ">>, case ContentTypeIn of
-														undefined -> <<>>;
-														_ -> ContentTypeIn
-													end, 
-						<<"\n\tContent-Type out: ">>,  case ContentType of
-															undefined -> <<>>;
-															_ -> ContentType 
-													   end,
+					   <<"\n\tContent-Type in: ">>, ContentTypeIn, 
+						<<"\n\tContent-Type out: ">>, ContentTypeOut,
 						<<"\n\tPeer: ">>, IpBin, <<"  Referer: ">>, case Referer of
 																		undefined -> <<>>;
 																		_ -> Referer
 																	end,
 						<<"\n\tUser-Agent: ">>, ems_util:user_agent_atom_to_binary(UserAgent), <<"  Version: ">>, UserAgentVersion,	
-						<<"\n\tService: ">>, case Service of 
-												undefined -> <<>>; 
-												_ -> Service#service.service 
-											 end,
+						<<"\n\tService: ">>, ServiceService,
 						<<"\n\tParams: ">>, ems_util:print_int_map(Params), 
 						<<"\n\tQuery: ">>, ems_util:print_str_map(Query), 
-						<<"\n\tPayload: ">>, case ContentLength < 90 of
-												true -> Payload;
-												false -> [binary:part(Payload, 0, 89), <<"...">>]
-											 end,
-						 case ShowResponse andalso byte_size(ResponseData) < 90 of 
-							true -> [<<"\n\tResponse: ">>, ResponseData]; 
-							false -> <<>> 
-						end,
-						case Service =/= undefined of
+						case (ShowPayload orelse 
+							   Reason =/= ok orelse 
+							   ShowPayloadService orelse 
+							   (ShowPayloadUrlList =/= [] andalso lists:member(Url, ShowPayloadUrlList))
+							  ) andalso ContentLength > 0 of
 							true ->
-							   case Service#service.result_cache > 0 of
+							   case ContentLength =< ShowPayloadMaxLength of
 									true ->
-									   ResultCacheSec = trunc(Service#service.result_cache / 1000),
-									   case ResultCacheSec > 0 of 
-											true  -> ResultCacheMin = trunc(ResultCacheSec / 60);
-											false -> ResultCacheMin = 0
-									   end,
-									   case ResultCacheMin > 0 of
-											true -> 
-											   case ResultCache of 
-													true ->  [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms (">>, integer_to_binary(ResultCacheMin), <<"min)  <<RID: ">>, integer_to_binary(ResultCacheRid), <<">>">>];
-													false -> [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms (">>, integer_to_binary(ResultCacheMin), <<"min)">>] 
-												end;
-											false ->
-											   case ResultCacheSec > 0 of
-													true -> 
-													   case ResultCache of 
-															true ->  [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms (">>, integer_to_binary(ResultCacheSec), <<"sec)  <<RID: ">>, integer_to_binary(ResultCacheRid), <<">>">>];
-															false -> [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms (">>, integer_to_binary(ResultCacheSec), <<"sec)">>] 
-														end;
-													false ->
-													   case ResultCache of 
-															true ->  [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms <<RID: ">>, integer_to_binary(ResultCacheRid), <<">>">>];
-															false -> [<<"\n\tResult-Cache: ">>, integer_to_list(Service#service.result_cache), <<"ms">>]
-														end
-												end
-										end;
-									false -> <<>>
+									     Payload2 = case is_binary(Payload) of
+														true -> Payload;
+														false -> iolist_to_binary(io_lib:format("~p",[Payload]))
+										  		    end,
+									     [<<"\n\tPayload: ">>, integer_to_list(ContentLength), 
+									      <<" bytes  Content: \033[1;34m">>, Payload2, <<"\033[0m">>,
+											 case Reason =/= ok of
+												true -> <<"\033[0;31m">>;
+												false -> <<>>
+											 end]; 
+									false -> [<<"\n\tPayload: ">>, integer_to_list(ContentLength), <<" bytes  Content: large content">>]
 								end;
 							false -> <<>>
 						end,
-					   <<"\n\tCache-Control: ">>, case CacheControl of
-													undefined -> <<>>;
-													_ -> CacheControl
-											  end,  
+						case (ShowResponse orelse
+							   Reason =/= ok orelse 
+							   ShowResponseService orelse
+							   (ShowResponseUrlList =/= [] andalso lists:member(Url, ShowResponseUrlList))
+							  ) of
+							true -> 
+								 ResponseData2 = case is_binary(ResponseData) of
+													true -> ResponseData;
+													false -> iolist_to_binary(io_lib:format("~p",[ResponseData]))
+												 end,
+								 ContentLengthResponse = byte_size(ResponseData2),
+							     case ContentLengthResponse > 0 of
+									true ->
+										case ContentLengthResponse =< ShowResponseMaxLength of
+											true -> [<<"\n\tResponse: ">>, integer_to_list(ContentLengthResponse), 
+													 <<" bytes  Content: \033[1;34m">>, ResponseData2, <<"\033[0m">>,
+													 case Reason =/= ok of
+														true -> <<"\033[0;31m">>;
+														false -> <<>>
+													 end]; 
+											false -> [<<"\n\tResponse: ">>, integer_to_list(ContentLengthResponse), <<" bytes  Content: Large content">>]
+										end;
+									false -> <<>>
+								end;
+							 false -> <<>>
+						end,
+					   case ResultCacheService > 0 of
+							true ->
+							   ResultCacheSec = trunc(ResultCacheService / 1000),
+							   case ResultCacheSec > 0 of 
+									true  -> ResultCacheMin = trunc(ResultCacheSec / 60);
+									false -> ResultCacheMin = 0
+							   end,
+							   case ResultCacheMin > 0 of
+									true -> 
+									   case ResultCache of 
+											true ->  [<<"\n\tResult-Cache: ">>, integer_to_list(ResultCacheService), <<"ms (">>, integer_to_binary(ResultCacheMin), <<"min)  <<RID: ">>, integer_to_binary(ResultCacheRid), <<">>">>];
+											false -> [<<"\n\tResult-Cache: ">>, integer_to_list(ResultCacheService), <<"ms (">>, integer_to_binary(ResultCacheMin), <<"min)">>] 
+										end;
+									false ->
+									   case ResultCacheSec > 0 of
+											true -> 
+											   case ResultCache of 
+													true ->  [<<"\n\tResult-Cache: ">>, integer_to_list(ResultCacheService), <<"ms (">>, integer_to_binary(ResultCacheSec), <<"sec)  <<RID: ">>, integer_to_binary(ResultCacheRid), <<">>">>];
+													false -> [<<"\n\tResult-Cache: ">>, integer_to_list(ResultCacheService), <<"ms (">>, integer_to_binary(ResultCacheSec), <<"sec)">>] 
+												end;
+											false ->
+											   case ResultCache of 
+													true ->  [<<"\n\tResult-Cache: ">>, integer_to_list(ResultCacheService), <<"ms <<RID: ">>, integer_to_binary(ResultCacheRid), <<">>">>];
+													false -> [<<"\n\tResult-Cache: ">>, integer_to_list(ResultCacheService), <<"ms">>]
+												end
+										end
+								end;
+							false -> <<>>
+						end,
+					    <<"\n\tCache-Control In: ">>, CacheControl,
 						<<"  ETag: ">>, case Etag of
-										undefined -> <<>>;
-										_ -> Etag
-									end,
+											undefined -> <<>>;
+											_ -> Etag
+										end,
 						<<"\n\tIf-Modified-Since: ">>, case IfModifiedSince of
-														undefined -> <<>>;
-														_ -> IfModifiedSince
+															undefined -> <<>>;
+															_ -> IfModifiedSince
 												   end,
 					   <<"  If-None-Match: ">>, case IfNoneMatch of
-												undefined -> <<>>;
-												_ -> IfNoneMatch
+													undefined -> <<>>;
+													_ -> IfNoneMatch
 										   end,
-					   <<"\n\tAuthorization mode: ">>, case Service of 
-														undefined -> <<>>; 
-														_ -> 
-															case Service#service.authorization of
-																basic -> <<"basic, oauth2">>;
-																oauth2 -> <<"oauth2">>;
-																_ -> <<"public">>
-															end
-												   end,
+					   <<"\n\tAuthorization mode: ">>, case AuthorizationService of
+															basic -> <<"basic, oauth2">>;
+															oauth2 -> <<"oauth2">>;
+															_ -> <<"public">>
+													   end,
 					   <<"\n\tAuthorization header: <<">>, case Authorization of
 															undefined -> <<>>;
 															_ -> Authorization
@@ -662,18 +785,19 @@ do_log_request(#request{rid = RID,
 										_ -> Node
 									 end,
 					   <<"\n\tFilename: ">>, case Filename of
-											undefined -> <<>>;
-											_ -> Filename
-										 end,
+												undefined -> <<>>;
+												_ -> Filename
+											 end,
 					   <<"\n\tStatus: ">>, integer_to_binary(Code), 
 					   <<" <<">>, case is_atom(Reason) of
 										true -> atom_to_binary(Reason, utf8);
 										false -> <<"error">>
-								  end, <<">> (">>, integer_to_binary(Latency), <<"ms)\n}">>]),
+								  end, <<">> (">>, integer_to_binary(Latency), <<"ms)\n}">>],
 					   
+				TextBin = iolist_to_binary(TextData),
 				NewState = case Code >= 400 of
-								true  -> write_msg(error, Texto1, State#state{ult_reqhash = ReqHash});
-								false -> write_msg(info, Texto1, State#state{ult_reqhash = ReqHash})
+								true  -> write_msg(error, TextBin, State#state{log_ult_reqhash = ReqHash});
+								false -> write_msg(info,  TextBin, State#state{log_ult_reqhash = ReqHash})
 							end,
 				NewState;
 			false -> 
@@ -681,8 +805,8 @@ do_log_request(#request{rid = RID,
 				State
 		end
 	catch 
-		_:_ -> 
-			ems_db:inc_counter(ems_logger_log_request_error),
+		_:ExceptionReason -> 
+			io:format("ems_logger do_log_request format invalid message. Reason: ~p.\n", [ExceptionReason]),
 			State
 	end.
 	

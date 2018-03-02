@@ -266,11 +266,8 @@ make_release(){
 			# Gera a estrutura /etc/systemd/system
 			mkdir -p $SKEL_PACKAGE_SOURCES/etc/systemd/system
 			mkdir -p $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.service.d
-			mkdir -p $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.epmd.service.d
 			ln -s /usr/lib/ems-bus/priv/systemd/ems-bus.service $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.service || die 'Could not create symbolic link ems-bus.service!' 
 			ln -s /usr/lib/ems-bus/priv/systemd/ems-bus.service.d/limits.conf $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.service.d/limits.conf || die 'Could not create symbolic link ems-bus.service.d/limits.conf!'
-			ln -s /usr/lib/ems-bus/priv/systemd/ems-bus.epmd.service $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.epmd.service || die 'NCould not create symbolic link ems-bus.service!' 
-			ln -s /usr/lib/ems-bus/priv/systemd/ems-bus.epmd.service.d/limits.conf $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.epmd.service.d/limits.conf || die 'Could not create symbolic link ems-bus.service.d/limits.conf!'
 
 			# Gera a estrutura /etc/firewalld
 			mkdir -p $SKEL_PACKAGE_SOURCES/etc/firewalld/services
@@ -329,11 +326,8 @@ make_release(){
 			# Gera a estrutura /etc/systemd/system
 			mkdir -p $SKEL_PACKAGE_SOURCES/etc/systemd/system
 			mkdir -p $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.service.d
-			mkdir -p $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.epmd.service.d
 			ln -s /usr/lib/ems-bus/priv/systemd/ems-bus.service $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.service || die 'Could not create symbolic link ems-bus.service!'
 			ln -s /usr/lib/ems-bus/priv/systemd/ems-bus.service.d/limits.conf $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.service.d/limits.conf || die 'Could not create symbolic link ems-bus.service.d/limits.conf!'
-			ln -s /usr/lib/ems-bus/priv/systemd/ems-bus.epmd.service $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.epmd.service || die 'Could not create symbolic link ems-bus.service!'
-			ln -s /usr/lib/ems-bus/priv/systemd/ems-bus.epmd.service.d/limits.conf $SKEL_PACKAGE_SOURCES/etc/systemd/system/ems-bus.epmd.service.d/limits.conf || die 'Could not create symbolic link ems-bus.service.d/limits.conf!'
 
 			# Gera a estrutura /etc/sudoers.d
 			mkdir -p $SKEL_PACKAGE_SOURCES/etc/sudoers.d

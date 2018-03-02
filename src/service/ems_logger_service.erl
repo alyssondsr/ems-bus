@@ -32,7 +32,7 @@ log_file_tail(Request) ->
 	case ems_logger:log_file_tail() of
 		{ok, FileList} ->
 			{ok, Request#request{code = 200, 
-								 content_type = <<"text/file">>,
+								 content_type_out = <<"text/file">>,
 								 response_data = FileList}
 			};
 		Error -> 
@@ -45,7 +45,7 @@ log_file_head(Request) ->
 	case ems_logger:log_file_head() of
 		{ok, FileList} ->
 			{ok, Request#request{code = 200, 
-								 content_type = <<"text/file">>,
+								 content_type_out = <<"text/file">>,
 								 response_data = FileList}
 			};
 		Error -> 

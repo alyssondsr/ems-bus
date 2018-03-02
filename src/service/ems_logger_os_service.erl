@@ -19,7 +19,7 @@ log_file_tail(Request = #request{service = #service{filename = Filename}}) ->
 	case ems_util:tail_file(Filename, 160) of
 		{ok, FileList} -> 
 			{ok, Request#request{code = 200, 
-								 content_type = <<"text/file">>,
+								 content_type_out = <<"text/file">>,
 								 response_data = FileList}
 			};
 		Error -> 
@@ -32,7 +32,7 @@ log_file_head(Request = #request{service = #service{filename = Filename}}) ->
 	case ems_util:head_file(Filename, 160) of
 		{ok, FileList} -> 
 			{ok, Request#request{code = 200, 
-								 content_type = <<"text/file">>,
+								 content_type_out = <<"text/file">>,
 								 response_data = FileList}
 			};
 		Error -> 

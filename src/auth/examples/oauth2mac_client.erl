@@ -84,7 +84,7 @@ redirect(Request, RedirectUri, Path) ->
 bad(Request, Reason) ->
 	{error, Request#request{code = 401, 
 								 response_data = Reason,
-								 content_type = <<"application/json;charset=UTF-8">>}
+								 content_type_out = <<"application/json;charset=UTF-8">>}
 	}.
 
 

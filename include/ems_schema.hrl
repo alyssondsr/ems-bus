@@ -41,6 +41,7 @@
 			   nacionalidade :: non_neg_integer(),
 			   matricula :: non_neg_integer(),				%% se o usuário tem alguma matrícula proveniente de dados funcionais
 			   remap_user_id :: non_neg_integer(),
+			   admin :: boolean(),
 			   ctrl_path :: string(),
 			   ctrl_file :: string(),
 			   ctrl_insert,									%% Data que o serviço foi inserido no banco mnesia
@@ -112,6 +113,7 @@
 -record(user_permission, {id :: non_neg_integer(),			%% identificador do perfil (required) (Na UnB é o campo TB_Perfil_Transacao.PTrid)
 						  user_id :: non_neg_integer(),		%% identificador do usuário (required) (Na UnB é o campo Tb_Usuario.UsuId)
 						  client_id :: non_neg_integer(),	%% identificador do cliente (required) (Na UnB é o campo Tb_Sistemas.PerSisId)
+						  perfil_id :: non_neg_integer(),	%% identificador do perfil  (required) (Na UnB é o campo Tb_Perfil.PerId)
 						  hash :: non_neg_integer(),
 						  hash2 :: non_neg_integer(),
 						  name :: binary(),
@@ -175,18 +177,19 @@
 					  latency :: non_neg_integer(),				%% Latência (tempo que levou para processar a requisição)
 					  code = 200 :: non_neg_integer(), 			%% Código de retorno HTTP (Ex.: 202 OK, 404 Não Encontrado)
 					  reason = ok :: atom(),					%% Registra a mensagem de erro, quando status indicar um erro
-					  type :: string(),							%% Verbo HTTP (GET, POST, PUT, DELETE e OPTIONS)
-					  uri :: string(),							%% URI da requisição do serviço
+					  type :: binary(),							%% Verbo HTTP (GET, POST, PUT, DELETE e OPTIONS)
+					  uri :: binary(),							%% URI da requisição do serviço
 					  url :: string(),							%% URL da requisição do serviço
+					  url_masked :: boolean(),					%% Indica se a url está mascarada. Ex.: /erl.ms/L2F1dGgvY2xpZW50Lz9maWx0ZXI9InsgICJuYW1lIiA6ICJQb3N0bWFuIiB9Ig==
 					  version :: string(),						%% Versão do cabeçalho HTTP
 					  payload :: binary(),						%% Corpo da requisição (aceita somente JSON)
 					  payload_map :: map(),						%% Corpo da requisição convertida para map após o parser e validação
 					  querystring :: binary(),					%% Querystring da requisição
 					  querystring_map,							%% Querystring convertida para map após o parser e validação
 					  params_url,								%% Map com os parâmetros da URL
-					  content_type_in :: binary(),				%% Tipo de conteúdo enviado ao barramento (Ex.: application/json, application/pdf)
+					  content_type_in :: binary(),				%% Tipo de conteúdo de entrada (Ex.: application/json)
+					  content_type_out :: binary(),				%% Tipo de conteúdo de saída. (Ex.: application/json)
 					  content_length :: non_neg_integer(), 		%% Largura da requisição
-					  content_type :: string(),					%% Tipo de conteúdo (Ex.: application/json)
 					  accept :: binary(),						%% Parâmetro ACCEPT HTTP
 					  user_agent :: binary(),					%% Nome do browser
 					  user_agent_version :: binary(),			%% Versão do browser
@@ -200,13 +203,12 @@
 					  t1,										%% Utilizado para cálculo da latência (Tempo inicial em milisegundos)
 					  socket :: gen_tcp:socket(),				%% Socket da requisição
 					  worker :: pid(),							%% Processo worker http que vai atender a requisição
-					  status_send,								%% Registra que a mensagem foi entregue ou o erro ocorrido na entrega
 					  authorization :: binary(),				%% Dados da autenticação da requisição
 					  client :: #client{},
 					  user :: #user{},							%% Usuário da requisição ou public
 					  node_exec = undefined,					%% Node que foi enviado a solicitação
-					  status = latency,							%% status: latency, req_done, req_send
 					  worker_send,
+					  status = req_processing :: atom(),		%% status: req_processing, req_done
 					  protocol :: atom(),						%% Protocol (http, ldap)
 					  protocol_bin :: binary(),	
 					  port :: non_neg_integer(),				
@@ -315,9 +317,12 @@
 					schema_out :: non_neg_integer(),
 					pool_size :: non_neg_integer(),
 					pool_max :: non_neg_integer(),
-					timeout :: non_neg_integer(),
-					expires :: non_neg_integer(),
-					cache_control :: binary(),
+					timeout :: non_neg_integer(),				%% Tempo que o dispatcher aguarda em milisegundos o processamento de um serviço antes de retornar etimeout_service para o cliente
+					timeout_alert_threshold = 0 :: non_neg_integer(),  	% Emite um alert no log após aguardar um determinado serviço por x milisegundos. O valor 0 (zero) desliga o threshold.
+					log_show_response = false :: boolean(),		%% Se true, imprime o response no log
+					log_show_payload = false :: boolean(),		%% Se true, imprime o payload no log
+					expires :: non_neg_integer(),				%% Cabeçalho HTTP expires
+					cache_control :: binary(),					%% Cabeçalho HTTP cache-control
 					enable = false :: boolean(),
 					content_type :: binary(),					%% Tipo de conteúdo (Ex.: application/json, application/pdf)
 					path :: string(),							%% Local para carregar arquivos estáticos
@@ -349,7 +354,9 @@
 					service_error_metric_name :: atom(),
 					service_unavailable_metric_name :: atom(),
 					service_timeout_metric_name :: atom(),
-					http_max_content_length :: non_neg_integer()
+					http_max_content_length :: non_neg_integer(),
+					http_headers :: map(),
+					restricted = false :: boolean()				%% Serviços restrito para admins
 				}).
 
 

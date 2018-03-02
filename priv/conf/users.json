@@ -10,19 +10,19 @@
 		"type" : 0,
 		"email" : "erlangms@unb.br",
 		"type_email" : 1
-	},
-	
+	},	
 	{
 		"id" : 2,
-		"codigo" : 1,
+		"codigo" : 2,
 		"name": "geral",
-		"login" : "geral",
+		"login" : "geral@unb.br",
 		"password": "fEqNCco3Yq9h5ZUglD3CZJT4lBs=",
 		"passwd_crypto" : "SHA1",
 		"active": true,
 		"type" : 0,
 		"email" : "geral@unb.br",
 		"type_email" : 1
-	}
-	
+	}	
 ]
+
+

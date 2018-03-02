@@ -2,7 +2,8 @@
 
 -export([execute/1]).
 
--include("../include/ems_schema.hrl").
+-include("include/ems_config.hrl").
+-include("include/ems_schema.hrl").
 
 execute(Request = #request{access_token = AccessToken}) -> 
 	case oauth2:verify_access_token(AccessToken, []) of
@@ -22,7 +23,7 @@ execute(Request = #request{access_token = AccessToken}) ->
 											   <<"}"/utf8>>]),
 			{ok, Request#request{code = 200, 
 								 response_data = ResponseData2,
-								 content_type = <<"application/json;charset=UTF-8">>}
+								 content_type_out = ?CONTENT_TYPE_JSON}
 			};		
 		{error, Reason} = Error -> 
 			{error, Request#request{code = 401,  

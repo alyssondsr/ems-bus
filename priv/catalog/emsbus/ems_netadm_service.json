@@ -1,7 +1,20 @@
 [
 	{
+		"name": "/netadm/info",
+		"comment": "Gets information about the major network services of ErlangMS",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_netadm_service:info",
+		"url": "/netadm/info",
+		"result_cache" : 0,
+		"async": "false",
+		"type": "GET",
+		"lang" : "erlang"
+	},
+
+	{
 		"name": "/netadm/restart",
-		"comment": "Restart ems-bus.",
+		"comment": "Restart ErlangMS",
 		"owner": "netadm",
 		"version": "1.0.0",
 		"service" : "ems_netadm_service:restart",
@@ -9,7 +22,6 @@
 		"async": "false",
 		"result_cache" : 0,
 		"type": "POST",
-		"authorization": "basic",
 		"lang" : "erlang"
 	},
 
@@ -165,20 +177,6 @@
 	},
 	
 	{
-		"name": "/netadm/info",
-		"comment": "Get ems-bus info.",
-		"owner": "netadm",
-		"version": "1.0.0",
-		"service" : "ems_netadm_service:info",
-		"url": "/netadm/info",
-		"result_cache" : 0,
-		"async": "false",
-		"type": "GET",
-		"authorization":"oauth2",
-		"lang" : "erlang"
-	},
-	
-	{
 		"name": "/netadm/config",
 		"comment": "Get config.",
 		"owner": "netadm",
@@ -188,10 +186,38 @@
 		"result_cache" : 0,
 		"async": "false",
 		"type": "GET",
-		"authorization": "basic",
+		"authorization":"oauth2",
 		"lang" : "erlang"
 	},
 	
+	{
+		"name": "/netadm/version",
+		"comment": "Get version of ErlangMS.",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_netadm_service:version",
+		"url": "/netadm/version",
+		"result_cache" : 0,
+		"async": "false",
+		"type": "GET",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+
+	{
+		"name": "/netadm/servername",
+		"comment": "Get server name of ErlangMS.",
+		"owner": "netadm",
+		"version": "1.0.0",
+		"service" : "ems_netadm_service:servername",
+		"url": "/netadm/servername",
+		"result_cache" : 0,
+		"async": "false",
+		"type": "GET",
+		"authorization": "basic",
+		"lang" : "erlang"
+	},
+
 	{
 		"name": "/netadm/datasource/:id",
 		"comment": "Get datasource by id",

@@ -15,7 +15,7 @@ execute(Request) ->
 							Service2 = Service#service{module_name = atom_to_list(ModuleController),
 													   module = ModuleController,
 													   function = execute},
-							case ems_dispatcher:dispatch_service_work(Request2, Service2) of
+							case ems_dispatcher:dispatch_service_work(Request2, Service2, false) of
 								{ok, request, #request{response_data = Args}} ->
 									case ems_django:render(ModuleTemplate, Args) of
 										{ok, Content} ->
@@ -29,7 +29,7 @@ execute(Request) ->
 							end;
 						{error, Reason} -> {error, Request2#request{code = 500, 
 																	reason = einvalid_django_sintax,
-																	content_type = ?CONTENT_TYPE_JSON,
+																	content_type_out = ?CONTENT_TYPE_JSON,
 																	response_data = ems_schema:to_json({error, Reason})}
 							 }
 					end;
@@ -37,7 +37,7 @@ execute(Request) ->
 				{error, Reason} -> 
 					{error, Request2#request{code = 500, 
 											 reason = einvalid_django_sintax,
-											 content_type = ?CONTENT_TYPE_JSON,
+											 content_type_out = ?CONTENT_TYPE_JSON,
 											 response_data = ems_schema:to_json({error, Reason})}
 							 }
 			end;

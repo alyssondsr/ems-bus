@@ -88,6 +88,7 @@ insert_or_update(Map, CtrlDate, Conf, SourceType, _Operation) ->
 								UserPermission = CurrentRecord#user_permission{
 												 user_id = NewRecord#user_permission.user_id,
 												 client_id = NewRecord#user_permission.client_id,
+												 perfil_id = NewRecord#user_permission.perfil_id,
 												 name = NewRecord#user_permission.name,
 												 url = NewRecord#user_permission.url,
 												 grant_get = NewRecord#user_permission.grant_get,

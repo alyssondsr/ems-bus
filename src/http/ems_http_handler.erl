@@ -11,104 +11,107 @@
 -include("include/ems_config.hrl").
 -include("include/ems_schema.hrl").
 
--export([init/2, terminate/3]).
+-export([init/2]).
 
 -record(state, {http_max_content_length,
-				http_header_default}).
+				http_header_default,
+				http_header_options,
+				show_debug_response_headers}).
 
 
-init(CowboyReq, State = #state{http_header_default = HttpHeaderDefault}) ->
-	?DEBUG("ems_http_handler new request: ~p.", [CowboyReq]),
-	case ems_util:encode_request_cowboy(CowboyReq, self(), HttpHeaderDefault) of
-		{ok, request, #request{code = Code,
-									  response_header = ResponseHeader,
-									  response_data = ResponseData}, CowboyReq2} ->
-					Response = cowboy_req:reply(Code, 
-												ResponseHeader, 
-												ResponseData, 
-												CowboyReq2);
+init(CowboyReq, State = #state{http_header_default = HttpHeaderDefault,
+							    http_header_options = HttpHeaderOptions, 
+							    show_debug_response_headers = ShowDebugResponseHeaders}) ->
+	case ems_util:encode_request_cowboy(CowboyReq, self(), HttpHeaderDefault, HttpHeaderOptions, ShowDebugResponseHeaders) of
 		{ok, Request = #request{t1 = T1}, Service, CowboyReq2} -> 
-			case ems_dispatcher:dispatch_request(Request, Service) of
+			case ems_dispatcher:dispatch_request(Request, Service, ShowDebugResponseHeaders) of
 				{ok, request, Request2 = #request{code = Code,
 												  response_header = ResponseHeader,
 												  response_data = ResponseData,
-												  content_type = ContentType}} ->
-					case ContentType of
-						<<"application/x-www-form-urlencoded; charset=UTF-8">> ->
-							ems_db:inc_counter(http_content_type_out_form_urlencode);
-						<<"application/x-www-form-urlencoded">> ->
-							ems_db:inc_counter(http_content_type_out_form_urlencode);
-						<<"application/json">> ->
-							ems_db:inc_counter(http_content_type_out_application_json);
-						<<"application/json; charset=utf-8">> ->
-							ems_db:inc_counter(http_content_type_out_application_json);
-						<<"application/json;charset=utf-8">> -> 
-							ems_db:inc_counter(http_content_type_out_application_json);
-						<<"application/xml">> ->
-							ems_db:inc_counter(http_content_type_out_application_xml);
-						<<"application/pdf">> ->
-							ems_db:inc_counter(http_content_type_out_application_pdf);
-						<<"text/html">> ->
-							ems_db:inc_counter(http_content_type_out_text_html);
-						<<"application/xhtml+xml">> ->
-							ems_db:inc_counter(http_content_type_out_application_xhtml_xml);
-						<<"text/css">> ->
-							ems_db:inc_counter(http_content_type_out_text_css);
-						<<"application/x-javascript">> ->
-							ems_db:inc_counter(http_content_type_out_javascript);
-						<<"image/png">> ->
-							ems_db:inc_counter(http_content_type_out_image_png);
-						<<"image/x-icon">> ->
-							ems_db:inc_counter(http_content_type_out_image_xicon);
-						<<"image/gif">> ->
-							ems_db:inc_counter(http_content_type_out_image_gif);
-						<<"image/jpeg">> ->
-							ems_db:inc_counter(http_content_type_out_image_jpeg);
-						<<"application/font-woff">> ->
-							ems_db:inc_counter(http_content_type_out_font_woff);
-						<<"image/bmp">> ->
-							ems_db:inc_counter(http_content_type_out_image_bpm);
-						<<"text/csv">> ->
-							ems_db:inc_counter(http_content_type_out_text_csv);
-						_ ->
-							ems_db:inc_counter(http_content_type_out_other)
-					end,
+												  content_type_out = ContentTypeOut}} ->
+					compute_metric_by_content_type_out(ContentTypeOut),
 					Response = cowboy_req:reply(Code, 
-												ResponseHeader#{
-													<<"server">> => ?SERVER_NAME,
-													<<"content-type">> => ContentType,
-													<<"access-control-allow-origin">> => ?ACCESS_CONTROL_ALLOW_ORIGIN,
-													<<"access-control-max-age">> => ?ACCESS_CONTROL_MAX_AGE,
-													<<"access-control-allow-headers">> => ?ACCESS_CONTROL_ALLOW_HEADERS,
-													<<"access-control-allow-methods">> => ?ACCESS_CONTROL_ALLOW_METHODS,
-													<<"access-control-expose-headers">> => ?ACCESS_CONTROL_EXPOSE_HEADERS}, 
+												ResponseHeader#{<<"content-type">> => ContentTypeOut}, 
 												ResponseData, 
 												CowboyReq2),
 					ems_logger:log_request(Request2);
 				{error, request, Request2 = #request{code = Code,
-													 response_data = ResponseData}} ->
+													  response_header = ResponseHeader,
+													  response_data = ResponseData}} ->
 					Response = cowboy_req:reply(Code, 
-												HttpHeaderDefault,
+												ResponseHeader,
 												ResponseData, 
 												CowboyReq2),
 					ems_logger:log_request(Request2);
 				{error, Reason} = Error ->
 					Request2 = Request#request{code = 400, 
-											   content_type = ?CONTENT_TYPE_JSON,
-											   reason = Reason, 
-											   response_data = ems_schema:to_json(Error), 
-											   response_header = HttpHeaderDefault,
-											   latency = ems_util:get_milliseconds() - T1},
+											    content_type_out = ?CONTENT_TYPE_JSON,
+											    reason = Reason, 
+											    response_data = ems_schema:to_json(Error), 
+											    latency = ems_util:get_milliseconds() - T1},
 					Response = cowboy_req:reply(Request2#request.code, 
 												Request2#request.response_header, 
 												Request2#request.response_data, CowboyReq2),
 					ems_logger:log_request(Request2)
 			end;
-		{error, Reason} = Error -> 
-			ems_logger:error("ems_http_handler request exception: ~p.", [Reason]),
-			Response = cowboy_req:reply(400, HttpHeaderDefault, ems_schema:to_json(Error), CowboyReq)
+		{_, request, Request = #request{code = Code,
+									     response_header = ResponseHeader,
+									     response_data = ResponseData}, CowboyReq2} ->
+			Response = cowboy_req:reply(Code, 
+										ResponseHeader, 
+										ResponseData, 
+										CowboyReq2),
+			ems_logger:log_request(Request);
+		{error, Reason} -> 
+			Type = binary_to_list(cowboy_req:method(CowboyReq)),
+			Url = binary_to_list(cowboy_req:path(CowboyReq)),
+			Protocol = binary_to_list(cowboy_req:scheme(CowboyReq)),
+			{Ip, _} = cowboy_req:peer(CowboyReq),
+			Ip2 = inet_parse:ntoa(Ip),
+			ems_logger:error("ems_http_handler ~s ~s ~s from ~s. Reason: ~p.", [Type, Url, Protocol, Ip2, Reason]),
+			Response = cowboy_req:reply(400, HttpHeaderDefault, ?EINVALID_HTTP_REQUEST, CowboyReq)
 	end,
 	{ok, Response, State}.
 
 
-terminate(_Reason, _Req, _State) ->  ok.    
+compute_metric_by_content_type_out(ContentTypeOut) ->
+	case ContentTypeOut of
+		<<"application/x-www-form-urlencoded; charset=UTF-8">> ->
+			ems_db:inc_counter(http_content_type_out_form_urlencode);
+		<<"application/x-www-form-urlencoded">> ->
+			ems_db:inc_counter(http_content_type_out_form_urlencode);
+		<<"application/json">> ->
+			ems_db:inc_counter(http_content_type_out_application_json);
+		<<"application/json; charset=utf-8">> ->
+			ems_db:inc_counter(http_content_type_out_application_json);
+		<<"application/json;charset=utf-8">> -> 
+			ems_db:inc_counter(http_content_type_out_application_json);
+		<<"application/xml">> ->
+			ems_db:inc_counter(http_content_type_out_application_xml);
+		<<"application/pdf">> ->
+			ems_db:inc_counter(http_content_type_out_application_pdf);
+		<<"text/html">> ->
+			ems_db:inc_counter(http_content_type_out_text_html);
+		<<"application/xhtml+xml">> ->
+			ems_db:inc_counter(http_content_type_out_application_xhtml_xml);
+		<<"text/css">> ->
+			ems_db:inc_counter(http_content_type_out_text_css);
+		<<"application/x-javascript">> ->
+			ems_db:inc_counter(http_content_type_out_javascript);
+		<<"image/png">> ->
+			ems_db:inc_counter(http_content_type_out_image_png);
+		<<"image/x-icon">> ->
+			ems_db:inc_counter(http_content_type_out_image_xicon);
+		<<"image/gif">> ->
+			ems_db:inc_counter(http_content_type_out_image_gif);
+		<<"image/jpeg">> ->
+			ems_db:inc_counter(http_content_type_out_image_jpeg);
+		<<"application/font-woff">> ->
+			ems_db:inc_counter(http_content_type_out_font_woff);
+		<<"image/bmp">> ->
+			ems_db:inc_counter(http_content_type_out_image_bpm);
+		<<"text/csv">> ->
+			ems_db:inc_counter(http_content_type_out_text_csv);
+		_ ->
+			ems_db:inc_counter(http_content_type_out_other)
+	end.

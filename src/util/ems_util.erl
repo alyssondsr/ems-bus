@@ -11,7 +11,8 @@
 -include("include/ems_config.hrl").
 -include("include/ems_schema.hrl").
 
--export([version/0,
+-export([parse_querystring/1,
+		 version/0,
 		 server_name/0,
 		 sleep/1,
 		 json_encode/1,
@@ -24,7 +25,6 @@
 		 tuple_to_binlist/1, 
 		 binlist_to_atomlist/1,
 		 list_to_binlist/1,
-		 binary_to_integer/1,
 		 mes_extenso/1,
 		 binlist_to_list/1,
 		 join_binlist/2,
@@ -37,6 +37,7 @@
  		 read_file_as_string/1,
 		 tail_file/2,
 		 load_from_file_req/1,
+		 save_from_file_req/1,
 		 node_is_live/1,
  		 node_binary/0,
 		 get_node_name/0,
@@ -44,12 +45,16 @@
 		 get_rowid_and_params_from_url/2,
 		 get_priv_dir/0,
 		 get_working_dir/0,
+		 get_home_dir/0,
  		 get_milliseconds/0,
-		 get_property_request/2, 
 		 get_param_url/3,
 		 get_querystring/3,
 		 get_querystring/4,
          get_querystring/2,
+         get_client_request_by_id_and_secret/1,
+         get_client_request_by_id/1,
+         get_client_request_by_querystring/1,
+         get_user_request_by_login_and_password/1,
          date_add_minute/2,
          date_dec_minute/2,
          date_add_second/2,
@@ -103,11 +108,12 @@
 		 parse_tcp_port/1,
 		 parse_request_querystring/2,
 		 parse_range/3,
+		 parse_range/4,
 		 parse_email/1,
 		 match_ip_address/2,
  		 allow_ip_address/2,
 		 mask_ipaddress_to_tuple/1,
-		 encode_request_cowboy/3,
+		 encode_request_cowboy/5,
 		 msg_campo_obrigatorio/2, msg_email_invalido/2, mensagens/1,
 		 msg_registro_ja_existe/1, msg_registro_ja_existe/2,
 		 hashsym_and_params/1,
@@ -137,10 +143,6 @@
 		 to_utf8/1,
 		 load_erlang_module/1,
 		 mime_type/1,
-		 encode_response/3,
-		 encode_response/4,
-		 encode_response/2,
-		 header_cache_control/1,
 		 rid_to_string/1,
 		 method_to_string/1,
 		 decode_http_header/2,
@@ -153,7 +155,9 @@
 		 user_agent_atom_to_binary/1,
 		 to_lower_and_remove_backslash/1,
 		 check_type_email/2,
-		 is_email_institucional/2
+		 is_email_institucional/2,
+		 invoque_service/3,
+		 url_mask/1
 		]).
 
 -spec version() -> string().
@@ -165,10 +169,10 @@ version() ->
 
 -spec server_name() -> string().
 server_name() ->
-	io_lib:format(<<"ems-bus-~s">>, [case application:get_key(ems_bus, vsn) of 
-											{ok, Version} -> Version;
-											undefined -> "1.0.0"
-									 end]).
+	iolist_to_binary([<<"ems-bus-">>, [case application:get_key(ems_bus, vsn) of 
+											{ok, Version} -> list_to_binary(Version);
+											undefined -> <<"1.0.0">>
+									  end]]).
 
 %% Retorna o hash da url e os parâmetros do request
 hashsym_and_params(S) when is_binary(S) -> hashsym_and_params(binary_to_list(S), 1, 0, []);
@@ -227,16 +231,22 @@ make_rowid_id([H|T]) when H == 47 -> T;
 make_rowid_id([_|T]) -> make_rowid_id(T).
 
 
+-spec get_priv_dir() -> string().
 get_priv_dir() ->
 	{ok, Path} = file:get_cwd(),
 	Path ++ "/priv".
 
+-spec get_working_dir() -> string().
 get_working_dir() ->
 	{ok, Path} = file:get_cwd(),
 	Path.
 
+-spec get_home_dir() -> string().
+get_home_dir() ->
+	{ok, [[Path]]} = init:get_argument(home),
+	Path.
 
-%% @doc Dorme por um determinado tempo
+
 -spec sleep(non_neg_integer()) -> true.
 sleep(T) ->
     receive
@@ -544,7 +554,12 @@ hd_or_empty(_) -> [].
 %% @doc Retorna a string com aspas
 quote(Str) -> lists:flatten([$", Str, $"]).
 
-remove_quoted_str(Str) -> string:substr(Str, 2, length(Str)-2).
+-spec remove_quoted_str(string()) -> string().
+remove_quoted_str("\"" ++ Str) -> 
+	case lists:reverse(Str) of
+		"\"" ++ Str2 -> lists:reverse(Str2);
+		_ -> Str
+	end.
 
 
 %% @doc Boolean indicando se DateTime ocorreu no período (min, hour, day, week, year)
@@ -591,7 +606,6 @@ modernize([H|T]) ->
 	Lista = [name_case(S) || S <- Tokens],
 	string:join(Lista, " ").
 
-binary_to_integer(Bin) -> list_to_integer(binary_to_list(Bin)).
 
 %% @doc Retorna o mês por extenso a partir do ordinal
 mes_extenso(1) -> "Janeiro";
@@ -948,11 +962,7 @@ parse_file_name_path(Path, StaticFilePathList, RootPath) ->
 		true -> remove_ult_backslash_url(Path);  
 		false ->
 			case Ch == "~" of
-				true -> 
-					case init:get_argument(home) of
-						{ok, [[HomePath]]} -> replace(Path, "~", HomePath);
-						{error, Reason} -> erlang:error(Reason)
-					end;
+				true -> replace(Path, "~", get_home_dir());
 				_ -> 
 					case Ch == "." of
 						true -> 
@@ -964,11 +974,7 @@ parse_file_name_path(Path, StaticFilePathList, RootPath) ->
 							Path2 = replace_all_vars(Path, StaticFilePathList),
 							% after process variables, check ~ or . wildcards
 							case string:substr(Path2, 1, 1) == "~" of
-								true -> 
-									case init:get_argument(home) of
-										{ok, [[HomePath]]} -> replace(Path2, "~", HomePath);
-										{error, Reason} -> erlang:error(Reason)
-									end;
+								true -> replace(Path2, "~", get_home_dir());
 								_ -> 
 									case Ch == "." of
 										true -> 
@@ -1460,13 +1466,117 @@ mime_type(".z") -> <<"application/x-compress">>;
 mime_type(".m4a") -> <<"audio/mpeg">>;
 mime_type(_) -> <<"application/octet-stream">>.
 
-
--spec encode_request_cowboy(tuple(), pid(), map()) -> {ok, #request{}} | {error, atom()}.
-encode_request_cowboy(CowboyReq, WorkerSend, HttpHeaderDefault) ->
+-spec invoque_service(binary(), binary(), binary()) -> {ok, request, #request{}} | {error, request, #request{}} | {error, atom()}.
+invoque_service(Type, Url, QuerystringBin) -> 
 	try
-		Url = cowboy_req:path(CowboyReq),
-		Url2 = remove_ult_backslash_url(binary_to_list(Url)),
+		case QuerystringBin of
+			<<>> -> QuerystringMap = #{};
+			_ -> 
+				Querystring = case binary_to_list(QuerystringBin) of
+									"?" ++ QuerystringValue -> QuerystringValue;
+									QuerystringValue -> QuerystringValue
+							  end,
+				QuerystringMap = parse_querystring([Querystring])
+		end,
+		invoque_service(Type, Url, QuerystringBin, QuerystringMap, ?CONTENT_TYPE_JSON)
+	catch
+		_Exception:Reason -> 
+			ems_logger:error("ems_util invoque_service ~p ~p with querystring ~p exception: ~p.", [Type, Url, QuerystringBin, Reason]),
+			{error, einvoque_service}
+	end.
+
+invoque_service(Type, Url, QuerystringBin, QuerystringMap, ContentTypeIn) ->
+	Url2 = remove_ult_backslash_url(binary_to_list(Url)),
+	{Rowid, Params_url} = hashsym_and_params(Url2),
+	RID = erlang:system_time(),
+	Timestamp = calendar:local_time(),
+	T1 = trunc(RID / 1.0e6), % optimized: same that get_milliseconds()
+	Request = #request{
+				rid = RID,
+				rowid = Rowid,
+				type = Type,
+				uri = <<>>,
+				url = Url2,
+				version = <<>>,
+				content_type_in = ContentTypeIn,
+				content_length = 0,
+				querystring = QuerystringBin,
+				querystring_map = QuerystringMap,
+				params_url = Params_url,
+				accept = <<"*/*">>,
+				user_agent = <<"ems-bus">>,
+				user_agent_version = <<>>,
+				accept_encoding = <<"*">>,
+				cache_control = <<>>,
+				ip = {127,0,0,1},
+				ip_bin = <<"127.0.0.1">>,
+				host = <<"localhost">>,
+				timestamp = Timestamp,
+				authorization = <<>>,
+				worker_send = undefined,
+				if_modified_since = <<>>,
+				if_none_match = <<>>,
+				protocol = http,
+				protocol_bin = <<"http">>,
+				port = 2301,
+				result_cache = false,
+				t1 = T1,
+				referer = <<"ems-bus">>,
+				payload = <<>>, 
+				payload_map = #{},
+				response_data = <<>>,
+				node_exec = ems_util:node_binary()
+			},	
+	case ems_catalog_lookup:lookup(Request) of
+		{Service = #service{content_type = ContentTypeService}, 
+		 ParamsMap, 
+		 QuerystringMap2} -> 
+			 ReqHash = erlang:phash2([Url, QuerystringMap2, 0, ContentTypeIn]),
+			 Request2 = Request#request{
+						querystring_map = QuerystringMap2,
+						content_type_out = 	case ContentTypeService of
+												undefined -> ContentTypeIn;
+												_ -> ContentTypeService
+											end,
+						params_url = ParamsMap,
+						req_hash = ReqHash,
+						service = Service},
+			ems_dispatcher:dispatch_service_work(Request2, Service, false);
+		 Error -> Error
+	end.	
+
+-spec url_mask(string() | binary()) -> binary().
+url_mask(Url) -> iolist_to_binary([<<"/erl.ms/">>, base64:encode(Url)]). 
+
+-spec encode_request_cowboy(tuple(), pid(), map(), map(), boolean()) -> {ok, #request{}} | {error, atom()}.
+encode_request_cowboy(CowboyReq, WorkerSend, HttpHeaderDefault, HttpHeaderOptions, ShowDebugResponseHeaders) ->
+	try
 		Uri = iolist_to_binary(cowboy_req:uri(CowboyReq)),
+		Url = binary_to_list(cowboy_req:path(CowboyReq)),
+		case Url of
+			"/erl.ms/" ++ UrlEncoded -> 
+				UrlMasked = true,
+				Url1 = binary_to_list(base64:decode(UrlEncoded)),
+				case string:find(Url1, "?") of
+					nomatch -> 
+						Url2 = remove_ult_backslash_url(Url1),
+						QuerystringBin = <<>>,
+						QuerystringMap0 = #{};
+					"?" ++ Querystring -> 
+						PosInterrogacao = string:chr(Url1, $?),
+						Url2 = remove_ult_backslash_url(string:slice(Url1, 0, PosInterrogacao-2)),
+						QuerystringBin = list_to_binary(Querystring),
+						QuerystringMap0 = parse_querystring([Querystring])
+				end;
+			_ -> 
+				UrlMasked = false,
+				QuerystringBin = cowboy_req:qs(CowboyReq),
+				Url2 = remove_ult_backslash_url(Url),
+				case QuerystringBin of
+					<<>> -> QuerystringMap0 = #{};
+					_ -> QuerystringMap0 = parse_querystring([binary_to_list(QuerystringBin)])
+				end
+		end,
 		RID = erlang:system_time(),
 		Timestamp = calendar:local_time(),
 		T1 = trunc(RID / 1.0e6), % optimized: same that get_milliseconds()
@@ -1476,17 +1586,12 @@ encode_request_cowboy(CowboyReq, WorkerSend, HttpHeaderDefault) ->
 		Host = cowboy_req:host(CowboyReq),
 		Version = cowboy_req:version(CowboyReq),
 		case cowboy_req:header(<<"content-type">>, CowboyReq) of
-			undefined -> ContentType = <<>>;
-			MimeType -> ContentType = MimeType
+			undefined -> ContentTypeIn = <<>>;
+			ContentTypeInValue -> ContentTypeIn = ContentTypeInValue
 		end,
-		QuerystringBin = cowboy_req:qs(CowboyReq),
 		ProtocolBin = cowboy_req:scheme(CowboyReq),
 		Protocol = parse_protocol(ProtocolBin),
 		Port = cowboy_req:port(CowboyReq),
-		case QuerystringBin of
-			<<>> -> QuerystringMap0 = #{};
-			_ -> QuerystringMap0 = parse_querystring([binary_to_list(QuerystringBin)])
-		end,
 		case cowboy_req:header(<<"accept">>, CowboyReq) of
 			undefined -> Accept = <<"*/*">>;
 			AcceptValue -> Accept = AcceptValue
@@ -1500,10 +1605,22 @@ encode_request_cowboy(CowboyReq, WorkerSend, HttpHeaderDefault) ->
 			undefined -> Cache_Control = <<>>;
 			CacheControlValue -> Cache_Control = CacheControlValue
 		end,
-		Authorization = cowboy_req:header(<<"authorization">>, CowboyReq),
-		IfModifiedSince = cowboy_req:header(<<"if-modified-since">>, CowboyReq),
-		IfNoneMatch = cowboy_req:header(<<"if-none-match">>, CowboyReq),
-		Referer = cowboy_req:header(<<"referer">>, CowboyReq),
+		case cowboy_req:header(<<"authorization">>, CowboyReq) of
+			undefined -> Authorization = <<>>;
+			AuthorizationValue -> Authorization = AuthorizationValue
+		end,
+		case cowboy_req:header(<<"if-modified-since">>, CowboyReq) of
+			undefined -> IfModifiedSince = <<>>;
+			IfModifiedSinceValue -> IfModifiedSince = IfModifiedSinceValue
+		end,
+		case cowboy_req:header(<<"if-none-match">>, CowboyReq) of
+			undefined -> IfNoneMatch = <<>>;
+			IfNoneMatchValue -> IfNoneMatch = IfNoneMatchValue
+		end,
+		case cowboy_req:header(<<"referer">>, CowboyReq) of
+			undefined -> Referer = <<>>;
+			RefererValue -> Referer = RefererValue
+		end,
 		{Rowid, Params_url} = hashsym_and_params(Url2),
 		TypeLookup = case Type of
 					<<"OPTIONS">> -> 
@@ -1534,7 +1651,11 @@ encode_request_cowboy(CowboyReq, WorkerSend, HttpHeaderDefault) ->
 			type = TypeLookup,
 			uri = Uri,
 			url = Url2,
+			url_masked = UrlMasked,
 			version = Version,
+			content_type_in = ContentTypeIn,
+			content_type_out = ContentTypeIn,  %% Igual ao content_type_in pois não se sabe o contrato ainda
+			content_length = 0,
 			querystring = QuerystringBin,
 			querystring_map = QuerystringMap0,
 			params_url = Params_url,
@@ -1556,10 +1677,24 @@ encode_request_cowboy(CowboyReq, WorkerSend, HttpHeaderDefault) ->
 			port = Port,
 			result_cache = false,
 			t1 = T1,
-			referer = Referer
+			referer = Referer,
+			payload = <<>>, 
+			payload_map = #{},
+			response_data = <<>>,
+			node_exec = ems_util:node_binary()
 		},	
 		case ems_catalog_lookup:lookup(Request) of
-			{Service = #service{http_max_content_length = HttpMaxContentLengthService}, ParamsMap, QuerystringMap} -> 
+			{Service = #service{name = ServiceName,
+								 url = ServiceUrl,
+								 content_type = ContentTypeService,
+								 owner = ServiceOwner,
+								 version = ServiceVersion,
+								 lang = LangService,
+								 timeout = TimeoutService,
+								 http_max_content_length = HttpMaxContentLengthService,
+								 authorization = ServiceAuthorization}, 
+			 ParamsMap, 
+			 QuerystringMap} -> 
 				case cowboy_req:body_length(CowboyReq) of
 					undefined -> ContentLength = 0; %% The value returned will be undefined if the length couldn't be figured out from the request headers. 
 					ContentLengthValue -> ContentLength = ContentLengthValue
@@ -1570,148 +1705,215 @@ encode_request_cowboy(CowboyReq, WorkerSend, HttpHeaderDefault) ->
 							true ->	erlang:error(ehttp_max_content_length_error);
 							false -> ok
 						end,
-						case ContentType of
+						ReadBodyOpts = #{length => HttpMaxContentLengthService, timeout => 30000},
+						case ContentTypeIn of
 							<<"application/json">> ->
 								ems_db:inc_counter(http_content_type_in_application_json),
-								ContentType2 = <<"application/json">>,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = <<"application/json">>,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = decode_payload_as_json(Payload),
 								QuerystringMap2 = QuerystringMap;
 							<<"application/json; charset=utf-8">> ->
 								ems_db:inc_counter(http_content_type_in_application_json),
-								ContentType2 = <<"application/json">>,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = <<"application/json">>,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = decode_payload_as_json(Payload),
 								QuerystringMap2 = QuerystringMap;
 							<<"application/json;charset=utf-8">> -> 
 								ems_db:inc_counter(http_content_type_in_application_json),
-								ContentType2 = <<"application/json">>,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = <<"application/json">>,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = decode_payload_as_json(Payload),
 								QuerystringMap2 = QuerystringMap;
 							<<"application/x-www-form-urlencoded">> ->
 								ems_db:inc_counter(http_content_type_in_form_urlencode),
-								ContentType2 = <<"application/x-www-form-urlencoded; charset=UTF-8">>,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_urlencoded_body(CowboyReq),
+								ContentTypeIn2 = <<"application/x-www-form-urlencoded">>,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_urlencoded_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = maps:from_list(Payload),
 								QuerystringMap2 = maps:merge(QuerystringMap, PayloadMap);
 							<<"application/x-www-form-urlencoded; charset=UTF-8">> ->
 								ems_db:inc_counter(http_content_type_in_form_urlencode),
-								ContentType2 = <<"application/x-www-form-urlencoded; charset=UTF-8">>,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_urlencoded_body(CowboyReq),
+								ContentTypeIn2 = <<"application/x-www-form-urlencoded">>,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_urlencoded_body(CowboyReq, ReadBodyOpts),
+								PayloadMap = maps:from_list(Payload),
+								QuerystringMap2 = maps:merge(QuerystringMap, PayloadMap);
+							<<"application/x-www-form-urlencoded;charset=UTF-8">> ->
+								ems_db:inc_counter(http_content_type_in_form_urlencode),
+								ContentTypeIn2 = <<"application/x-www-form-urlencoded">>,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_urlencoded_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = maps:from_list(Payload),
 								QuerystringMap2 = maps:merge(QuerystringMap, PayloadMap);
 							<<"application/xml">> ->
 								ems_db:inc_counter(http_content_type_in_application_xml),
-								ContentType2 = <<"application/xml">>,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = <<"application/xml">>,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = decode_payload_as_xml(Payload),
 								QuerystringMap2 = QuerystringMap;
 							<<"text/plain">> ->
 								ems_db:inc_counter(http_content_type_in_text_plain),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							<<"text/csv">> ->
 								ems_db:inc_counter(http_content_type_in_text_csv),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							<<"application/octet-stream">> ->
 								ems_db:inc_counter(http_content_type_in_octet_stream),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							<<"application/gzip">> ->
 								ems_db:inc_counter(http_content_type_in_application_gzip),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							<<"application/pdf">> ->
 								ems_db:inc_counter(http_content_type_in_application_pdf),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							<<"application/msword">> ->
 								ems_db:inc_counter(http_content_type_in_officedocument),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							<<"application/vnd.openxmlformats-officedocument.wordprocessingml.document">> ->
 								ems_db:inc_counter(http_content_type_in_officedocument),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							<<"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">> ->
 								ems_db:inc_counter(http_content_type_in_officedocument),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							<<"image/png">> ->
 								ems_db:inc_counter(http_content_type_in_image_png),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							<<"image/jpeg">> ->
 								ems_db:inc_counter(http_content_type_in_image_jpeg),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
+								PayloadMap = undefined,
+								QuerystringMap2 = QuerystringMap;
+							<<"multipart/form-data">> ->
+								ems_db:inc_counter(http_content_type_in_formdata),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Headers, CowboyReq1} = cowboy_req:read_part(CowboyReq),
+								io:format("multipart/form-data headers is ~p\n", [Headers]),
+								{ok, Payload, CowboyReq2} = cowboy_req:read_part_body(CowboyReq1),								
+								{file, <<"inputfile">>, Filename, ContentType} = cow_multipart:form_data(Headers),
+
+								io:format("Received file ~p of content-type ~p as follow:~n~p~n~n",
+									[Filename, ContentType, Payload]),
+
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap;
 							_ -> 
 								ems_db:inc_counter(http_content_type_in_other),
-								ContentType2 = ContentType,
-								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq),
+								ContentTypeIn2 = ContentTypeIn,
+								{ok, Payload, CowboyReq2} = cowboy_req:read_body(CowboyReq, ReadBodyOpts),
 								PayloadMap = undefined,
 								QuerystringMap2 = QuerystringMap
 						end;
 					false ->
-						ContentType2 = ContentType,						
+						ContentTypeIn2 = ContentTypeIn,						
 						Payload = <<>>,
 						PayloadMap = undefined,
 						QuerystringMap2 = QuerystringMap,
 						CowboyReq2 = CowboyReq
 				end,
-				ReqHash = erlang:phash2([Url, QuerystringBin, ContentLength, ContentType2]),
+				ReqHash = erlang:phash2([Url, QuerystringMap2, ContentLength, ContentTypeIn2]),
 				Request2 = Request#request{
-					type = Type,
+					type = Type, % use original verb of request
 					querystring_map = QuerystringMap2,
-					content_type_in = ContentType2,
-					content_type = ContentType2,
+					content_type_in = ContentTypeIn2,
+					content_type_out = 	case ContentTypeService of
+											undefined -> ContentTypeIn2;
+											_ -> ContentTypeService
+										end,
 					content_length = ContentLength,
 					payload = Payload, 
 					payload_map = PayloadMap,
 					params_url = ParamsMap,
-					req_hash = ReqHash
+					req_hash = ReqHash,
+					service = Service,
+					response_header = case Type of
+											<<"OPTIONS">> -> 
+												ExpireDate = date_add_minute(Timestamp, 1440),
+												Expires = cowboy_clock:rfc1123(ExpireDate),
+												case ShowDebugResponseHeaders of
+													false ->
+														HttpHeaderOptions#{<<"expires">> => Expires};
+													true ->
+														HttpHeaderOptions#{<<"ems-rowid">> => integer_to_binary(Rowid),
+																		   <<"ems-hash">> => integer_to_binary(ReqHash),
+																		   <<"ems-catalog">> => ServiceName,
+																		   <<"ems-owner">> => ServiceOwner,
+																		   <<"ems-version">> => ServiceVersion,
+																		   <<"ems-url">> => ServiceUrl,
+																		   <<"ems-timeout">> => integer_to_binary(TimeoutService),
+																		   <<"ems-lang">> => LangService,
+																		   <<"ems-authorization">> => atom_to_binary(ServiceAuthorization, utf8),
+																		   <<"expires">> => Expires}
+												end;
+											_ -> 
+												case ShowDebugResponseHeaders of
+													false ->
+														HttpHeaderDefault;
+													true ->
+														HttpHeaderDefault#{<<"ems-rowid">> => integer_to_binary(Rowid),
+																		   <<"ems-hash">> => integer_to_binary(ReqHash),
+																		   <<"ems-catalog">> => ServiceName,
+																		   <<"ems-owner">> => ServiceOwner,
+																		   <<"ems-version">> => ServiceVersion,
+																		   <<"ems-url">> => ServiceUrl,
+																		   <<"ems-timeout">> => integer_to_binary(TimeoutService),
+																		   <<"ems-lang">> => LangService,
+																		   <<"ems-authorization">> => atom_to_binary(ServiceAuthorization, utf8)}
+												end
+									  end
 				},	
 				{ok, Request2, Service, CowboyReq2};
-			Error2 -> 
+			_ -> 
+				ReqHash = erlang:phash2([Url, QuerystringMap0, 0, ContentTypeIn]),
 				if 
-					Type =:= <<"OPTIONS">> orelse Type =:= "HEAD" ->
-							{ok, request, Request#request{code = 200, 
-														  reason = ok, 
-														  response_header = HttpHeaderDefault,
-														  latency = ems_util:get_milliseconds() - T1}
-							};
+					Type =:= <<"OPTIONS">> orelse Type =:= <<"HEAD">> ->
+							Request2 = Request#request{req_hash = ReqHash,
+														code = 200, 
+													    reason = ok,
+													    type = Type,  % use original verb of request
+													    response_header = HttpHeaderOptions,
+													    response_data = ?ENOENT_SERVICE_CONTRACT_JSON,
+													    latency = ems_util:get_milliseconds() - T1},
+							{ok, request, Request2, CowboyReq};
 					true ->
 						ems_db:inc_counter(ems_dispatcher_lookup_enoent),								
-						Error2
+						Request2 = Request#request{req_hash = ReqHash,
+													code = 404, 
+												    reason = enoent_service_contract,
+												    type = Type,  % use original verb of request
+												    response_header = HttpHeaderDefault,
+												    response_data = ?ENOENT_SERVICE_CONTRACT_JSON,
+												    latency = ems_util:get_milliseconds() - T1},
+						{error, request, Request2, CowboyReq}
 				end			
 		end
 	catch
-		_Exception:Reason -> 
-			ems_db:inc_counter(Reason),
-			ems_logger:error("ems_util invalid http request ~p. Reason: ~p.", [CowboyReq, Reason]),
-			{error, Reason}
+		_Exception:Reason2 -> {error, Reason2}
 	end.
 
 
@@ -1724,59 +1926,7 @@ parse_protocol(_) -> erlang:error(einvalid_protocol).
 parse_if_modified_since(undefined) -> undefined;
 parse_if_modified_since(IfModifiedSince) -> cow_date:parse_date(IfModifiedSince).
 
-
-%% @doc Gera o response HTTP
-encode_response(<<Codigo/binary>>, <<Payload/binary>>, <<MimeType/binary>>) ->
-	encode_response(Codigo, Payload, MimeType, undefined).
-	
-encode_response(<<Codigo/binary>>, <<Payload/binary>>, <<MimeType/binary>>, Header) ->
-	PayloadLength = list_to_binary(integer_to_list(size(Payload))),
-	Response = [<<"HTTP/1.1 "/utf8>>, Codigo, <<" OK\n"/utf8>>,
-				<<"Server: ErlangMS\n"/utf8>>,
-				<<"Content-Type: "/utf8>>, MimeType, <<"\n"/utf8>>,
-				<<"Content-Length: "/utf8>>, PayloadLength, <<"\n"/utf8>>,
-				<<"Access-Control-Allow-Origin: *\n"/utf8>>,
-				<<"Access-Control-Allow-Methods: GET, PUT, POST, DELETE, OPTIONS\n"/utf8>>,
-				<<"Access-Control-Allow-Headers: Content-Type, Content-Range, Content-Disposition, Content-Description, X-Requested-With, X-CSRFToken, X-CSRF-Token, Authorization\n"/utf8>>,
-				case Header of undefined -> header_cache_control(MimeType); _ -> Header end,
-				<<"\n\n"/utf8>>, 
-	            Payload],
-	Response2 = iolist_to_binary(Response),
-	Response2.
-
-
-encode_response(Codigo, []) ->
-	encode_response(Codigo, <<"[]">>, <<"application/json; charset=utf-8"/utf8>>);
-encode_response(<<Codigo/binary>>, []) ->
-	encode_response(Codigo, <<"[]">>, <<"application/json; charset=utf-8"/utf8>>);
-encode_response(<<Codigo/binary>>, <<>>) ->
-	encode_response(Codigo, <<"[]">>, <<"application/json; charset=utf-8"/utf8>>);
-encode_response(<<Codigo/binary>>, <<Payload/binary>>) ->
-	encode_response(Codigo, Payload, <<"application/json; charset=utf-8"/utf8>>);
-encode_response(Codigo, Payload) when is_tuple(Payload) ->
-    Payload2 = ems_schema:to_json(Payload),
-    encode_response(Codigo, Payload2).
 						
-header_cache_control(<<"application/x-javascript">>) ->
-	<<"Cache-Control: max-age=290304000, public"/utf8>>;
-header_cache_control(<<"text/css">>) ->
-	<<"Cache-Control: max-age=290304000, public"/utf8>>;
-header_cache_control(<<"image/x-icon">>) ->
-	<<"Cache-Control: max-age=290304000, public"/utf8>>;
-header_cache_control(<<"image/png">>) ->
-	<<"Cache-Control: max-age=290304000, public"/utf8>>;
-header_cache_control(<<"image/gif">>) ->
-	<<"Cache-Control: max-age=290304000, public"/utf8>>;
-header_cache_control(<<"image/jpeg">>) ->
-	<<"Cache-Control: max-age=290304000, public"/utf8>>;
-header_cache_control(<<"image/bmp">>) ->
-	<<"Cache-Control: max-age=290304000, public"/utf8>>;
-header_cache_control(<<"application/font-woff">>) ->
-	<<"Cache-Control: max-age=290304000, public"/utf8>>;
-header_cache_control(<<_MimeType/binary>>) ->
-	<<"Cache-Control: no-cache"/utf8>>.
-
-
 -spec parse_querystring(list()) -> list(tuple()).
 parse_querystring(Q) ->
 	Q1 = httpd:parse_query(Q),
@@ -1883,27 +2033,36 @@ match_ip_address({O1, O2, O3, O4}, {X1, X2, X3, X4}) ->
 	
 -spec parse_basic_authorization_header(Header :: binary()) -> {ok, string(), string()} | {error, access_denied}.
 parse_basic_authorization_header(<<Basic:5/binary, _:1/binary, Secret/binary>>) ->
-	case Basic =:= <<"Basic">> of
-		true ->
-			Secret2 = base64:decode_to_string(binary_to_list(Secret)),
-			case string:tokens(Secret2, ":") of
-				[Login|[Password|_]] -> {ok, Login, Password};
-				_ -> {error, access_denied}
-			end;
-		false -> {error, access_denied}
+	try
+		case Basic =:= <<"Basic">> of
+			true ->
+				Secret2 = base64:decode_to_string(binary_to_list(Secret)),
+				case string:tokens(Secret2, ":") of
+					[Login|[Password|_]] -> {ok, Login, Password};
+					_ -> {error, access_denied}
+				end;
+			false -> {error, access_denied}
+		end
+	catch
+		_:_ -> {error, access_denied}
 	end;
 parse_basic_authorization_header(_) -> {error, access_denied}.
 	
 -spec parse_bearer_authorization_header(Header :: binary()) -> {ok, binary()} | {error, access_denied}.
 parse_bearer_authorization_header(Header) ->
-	case Header of 
-		<<Bearer:6/binary, _:1/binary, Secret/binary>> ->
-			case Bearer =:= <<"Bearer">> of
-				true ->	{ok, Secret};
-				false -> {error, access_denied}
-			end;
-		_ -> {error, access_denied}
+	try
+		case Header of 
+			<<Bearer:6/binary, _:1/binary, Secret/binary>> ->
+				case Bearer =:= <<"Bearer">> of
+					true ->	{ok, Secret};
+					false -> {error, access_denied}
+				end;
+			_ -> {error, access_denied}
+		end
+	catch
+		_:_ -> {error, access_denied}
 	end.
+		
 
 -spec parse_authorization_type(binary() | string() | oauth2 | basic | public | 0 | 1 | 2) -> atom().
 parse_authorization_type(<<"Basic">>) -> basic;
@@ -2120,36 +2279,13 @@ parse_tcp_port(Port) when is_integer(Port) ->
 	
 	
 -spec node_binary() -> binary().
-node_binary() -> erlang:atom_to_binary(node(), utf8).
+node_binary() -> erlang:atom_to_binary(node(), utf8).   
 
 uptime_str() ->
 	{UpTime, _} = erlang:statistics(wall_clock),
     {D, {H, M, S}} = calendar:seconds_to_daystime(UpTime div 1000),
     lists:flatten(io_lib:format("~p days, ~p hours, ~p minutes and ~p seconds", [D,H,M,S])).
     
-
-%% @doc Retorna a URL do request
-get_property_request(<<"url">>, Request) ->
-	Request#request.url;
-
-%% @doc Retorna o tipo do request
-get_property_request(<<"metodo">>, Request) ->
-	Request#request.type;
-
-get_property_request(<<"type">>, Request) ->
-	Request#request.type;
-
-%% @doc Retorna a URL do request
-get_property_request(<<"http_version">>, Request) ->
-	Request#request.version;
-
-%% @doc Retorna o payload/body do request
-get_property_request(<<"payload">>, Request) ->
-	Request#request.payload_map;
-
-%% @doc Retorna o payload/body do request
-get_property_request(<<"body">>, Request) ->
-	Request#request.payload_map.
 
 %% @doc Retorna um parâmetro do request
 get_param_url(NomeParam, Default, Request) ->
@@ -2172,13 +2308,16 @@ get_querystring(QueryName, Default, #request{querystring_map = QuerystringMap}) 
 	end.
 
 get_querystring(QueryName, OrQueryName2, Default, #request{querystring_map = QuerystringMap}) ->
-	case maps:is_key(QueryName, QuerystringMap) of
-		true ->	Value = maps:get(QueryName, QuerystringMap, Default);
-		false -> Value = maps:get(OrQueryName2, QuerystringMap, Default)
+	Value = maps:get(QueryName, QuerystringMap, undefined),
+	case Value =/= undefined andalso Value =/= <<>> of
+		true ->	
+			Value2 = maps:get(QueryName, QuerystringMap);
+		false -> 
+			Value2 = maps:get(OrQueryName2, QuerystringMap, Default)
 	end,
-	case erlang:is_list(Value) of
-		true -> list_to_binary(Value);
-		false -> Value
+	case erlang:is_list(Value2) of
+		true -> list_to_binary(Value2);
+		false -> Value2
 	end.
 
 
@@ -2186,6 +2325,7 @@ load_from_file_req(Request = #request{url = Url,
 									  if_modified_since = IfModifiedSinceReq, 
 									  if_none_match = IfNoneMatchReq,
 									  timestamp = Timestamp,
+									  response_header = ResponseHeader,
 									  service = #service{cache_control = CacheControl,
 														 expires = ExpiresMinute,
 														 path = Path}}) ->
@@ -2198,7 +2338,7 @@ load_from_file_req(Request = #request{url = Url,
 			LastModified = cowboy_clock:rfc1123(MTime),
 			ExpireDate = date_add_minute(Timestamp, ExpiresMinute + 120), % add +120min (2h) para ser horário GMT
 			Expires = cowboy_clock:rfc1123(ExpireDate),
-			HttpHeader =	#{
+			ResponseHeader2 = ResponseHeader#{
 								<<"cache-control">> => CacheControl,
 								<<"etag">> => ETag,
 								<<"last-modified">> => LastModified,
@@ -2207,39 +2347,54 @@ load_from_file_req(Request = #request{url = Url,
 			case ETag == IfNoneMatchReq orelse LastModified == IfModifiedSinceReq of
 				true -> {ok, Request#request{code = 304, 
 											 reason = enot_modified,
-											 content_type = MimeType,
+											 content_type_out = MimeType,
 											 etag = ETag,
 											 filename = Filename,
 											 response_data = <<>>, 
-											 response_header = HttpHeader}
+											 response_header = ResponseHeader2}
 						 };
 				false ->
 					case file:read_file(Filename) of
 						{ok, FileData} -> 
 							{ok, Request#request{code = 200, 
-											     reason = ok,
-												 content_type = MimeType,
-											     etag = ETag,
-											     filename = Filename,
-											     response_data = FileData, 
-											     response_header = HttpHeader}
+											      reason = ok,
+												  content_type_out = MimeType,
+											      etag = ETag,
+											      filename = Filename,
+											      response_data = FileData, 
+											      response_header = ResponseHeader2}
 							};
 						{error, Reason} = Error -> 
 							{error, Request#request{code = case Reason of enoent -> 404; _ -> 400 end, 
-												    reason = Reason,
-												    content_type = ?CONTENT_TYPE_JSON,
-												    response_data = ems_schema:to_json(Error)}
+												     reason = Reason,
+												     content_type_out = ?CONTENT_TYPE_JSON,
+												     response_data = ems_schema:to_json(Error)}
 							}
 					end
 			end;
 		{error, Reason} = Error -> 
 			ems_logger:warn("ems_static_file_service file ~p does not exist.", [Filename]),
 			{error, Request#request{code = case Reason of enoent -> 404; _ -> 400 end, 
-									reason = Reason,	
-									response_data = ems_schema:to_json(Error)}
+									 reason = Reason,	
+									 response_data = ems_schema:to_json(Error)}
 			 }
 	end.
 
+
+save_from_file_req(Request = #request{url = Url,
+									  if_modified_since = IfModifiedSinceReq, 
+									  if_none_match = IfNoneMatchReq,
+									  timestamp = Timestamp,
+									  response_header = ResponseHeader,
+									  service = #service{cache_control = CacheControl,
+														 expires = ExpiresMinute,
+														 path = Path}}) ->
+		io:format("saved...\n"),
+		{ok, Request#request{code = 200, 
+							 reason = ok,
+							 content_type_out = ?CONTENT_TYPE_JSON,
+							 response_data = ?OK_JSON}
+		}.
 
 -spec tuple_to_maps_with_keys(list(tuple()), list(tuple())) -> map().
 tuple_to_maps_with_keys(Tuple, Keys) ->
@@ -2267,6 +2422,10 @@ is_range_valido(_Number, _RangeIni, _RangeFim) -> false.
 -spec parse_range(non_neg_integer(), integer(), integer()) -> non_neg_integer.
 parse_range(Number, RangeIni, RangeFim) when Number >= RangeIni andalso Number =< RangeFim -> Number;
 parse_range(_, _, _) -> erlang:error(erange_not_allowed).
+
+-spec parse_range(non_neg_integer(), integer(), integer(), atom()) -> non_neg_integer.
+parse_range(Number, RangeIni, RangeFim, _) when Number >= RangeIni andalso Number =< RangeFim -> Number;
+parse_range(_, _, _, Exception) -> erlang:error(Exception).
 
 
 -spec parse_email(string() | binary()) -> binary() | undefined.
@@ -2543,5 +2702,129 @@ is_email_institucional(SufixoEmailInstitucional, Email) ->
 	case lists:suffix(SufixoEmailInstitucional, binary_to_list(Email)) of
 		true -> true;
 		false -> false
+	end.
+
+-spec get_client_request_by_id_and_secret(#request{}) -> #client{} | undefined.
+get_client_request_by_id_and_secret(Request = #request{authorization = Authorization}) ->
+    try
+		case get_querystring(<<"client_id">>, <<>>, Request) of
+			<<>> -> ClientId = 0;
+			undefined -> ClientId = 0;
+			ClientIdValue -> ClientId = binary_to_integer(ClientIdValue)
+		end,
+		case ClientId > 0 of
+			true ->
+				ClientSecret = ems_util:get_querystring(<<"client_secret">>, <<>>, Request),
+				case ems_client:find_by_id_and_secret(ClientId, ClientSecret) of
+					{ok, Client} -> Client;
+					_ -> undefined
+				end;
+			false ->
+				% O ClientId também pode ser passado via header Authorization
+				case Authorization =/= undefined of
+					true ->
+						case parse_basic_authorization_header(Authorization) of
+							{ok, ClientLogin, ClientSecret} ->
+								ClientId2 = list_to_integer(ClientLogin),
+								ClientSecret2 = list_to_binary(ClientSecret),
+								case ems_client:find_by_id_and_secret(ClientId2, ClientSecret2) of
+									{ok, Client} -> Client;
+									_ -> undefined
+								end;
+							_ -> undefined
+						end;
+					false -> undefined
+				end
+		end
+	catch
+		_:_ -> undefined
+	end.
+
+
+-spec get_client_request_by_id(#request{}) -> #client{} | undefined.
+get_client_request_by_id(Request = #request{authorization = Authorization}) ->
+    try
+		case get_querystring(<<"client_id">>, <<>>, Request) of
+			<<>> -> ClientId = 0;
+			undefined -> ClientId = 0;
+			ClientIdValue -> ClientId = binary_to_integer(ClientIdValue)
+		end,
+		case ClientId > 0 of
+			true ->
+				case ems_client:find_by_id(ClientId) of
+					{ok, Client} -> Client;
+					_ -> undefined
+				end;
+			false ->
+				% O ClientId também pode ser passado via header Authorization
+				case Authorization =/= undefined of
+					true ->
+						case parse_basic_authorization_header(Authorization) of
+							{ok, ClientLogin, _} ->
+								ClientId2 = list_to_integer(ClientLogin),
+								case ems_client:find_by_id(ClientId2) of
+									{ok, Client} -> Client;
+									_ -> undefined
+								end;
+							_ -> undefined
+						end;
+					false -> undefined
+				end
+		end
+	catch
+		_:_ -> undefined
+	end.
+
+
+-spec get_client_request_by_querystring(#request{}) -> #client{} | undefined.
+get_client_request_by_querystring(Request) ->
+    try
+		case get_querystring(<<"client_id">>, <<>>, Request) of
+			<<>> -> ClientId = 0;
+			undefined -> ClientId = 0;
+			ClientIdValue -> ClientId = binary_to_integer(ClientIdValue)
+		end,
+		case ClientId > 0 of
+			true ->
+				ClientSecret = ems_util:get_querystring(<<"client_secret">>, <<>>, Request),
+				case ems_client:find_by_id_and_secret(ClientId, ClientSecret) of
+					{ok, Client} -> Client;
+					_ -> undefined
+				end;
+			false -> undefined
+		end
+	catch
+		_:_ -> undefined
+	end.
+
+
+-spec get_user_request_by_login_and_password(#request{}) -> #client{} | undefined.
+get_user_request_by_login_and_password(Request = #request{authorization = Authorization}) ->
+    try
+		Username = ems_util:get_querystring(<<"username">>, <<>>, Request),
+		case Username =/= <<>> of
+			true ->
+				Password = ems_util:get_querystring(<<"password">>, <<>>, Request),
+				case ems_user:find_by_login_and_password(Username, Password) of
+					{ok, User} -> User;
+					_ -> undefined
+				end;
+			false ->
+				% O user também pode ser passado via header Authorization
+				case Authorization =/= undefined of
+					true ->
+						case parse_basic_authorization_header(Authorization) of
+							{ok, Login, Password} ->
+								case ems_user:find_by_login_and_password(Login, Password) of
+									{ok, User} -> User;
+									_ -> undefined
+								end;
+							_ -> undefined
+						end;
+					false -> undefined
+				end
+		end
+	catch
+		_:_ -> undefined
 	end.
 

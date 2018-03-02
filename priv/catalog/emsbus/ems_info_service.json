@@ -1,22 +1,9 @@
 [
 	{
-		"name": "/info",
-		"comment": "Information on bus.",
-		"owner": "emsbus",
-		"version": "1",
-		"service" : "ems_info_service:info",
-		"url": "/info",
-		"async": "false",
-		"type": "GET",
-		"authorization" : "public",
-		"lang" : "erlang"
-	},
-
-	{
 		"name": "/",
-		"comment": "Information on bus.",
+		"comment": "Show Its works!!!",
 		"owner": "emsbus",
-		"version": "1",
+		"version": "1.0.0",
 		"service" : "ems_info_service:info",
 		"url": "/",
 		"async": "false",

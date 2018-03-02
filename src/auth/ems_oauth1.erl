@@ -175,7 +175,7 @@ consumer_lookup(ClientId, _Method) ->
 ok(Request, Body) ->
 			{ok, Request#request{code = 200, 
 								 response_data = Body,
-								 content_type = <<"application/json;charset=UTF-8">>}
+								 content_type_out = <<"application/json;charset=UTF-8">>}
 			}.		
 bad(Request, Reason) ->
   {ok, Request#request{code = 401, 

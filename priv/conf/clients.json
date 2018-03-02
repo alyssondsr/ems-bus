@@ -17,6 +17,17 @@
 		"redirect_uri" : "/logs/index.html/",
 		"active": true,
 		"scope": ""
+	},
+	
+	{
+		"id" : 3,
+		"name": "portal",
+		"description": "Portal ErlangMs",
+		"secret": "CPD",
+		"redirect_uri" : "/portal/index.html",
+		"active": true,
+		"scope": ""
 	}
+	
 	
 ]

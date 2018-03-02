@@ -43,8 +43,8 @@ NET_INTERFACES=$(netstat -tnl | awk -v PORT=$LDAP_PORT '$4 ~ PORT { print $4; }'
 MEM=$(free -h | awk '$1 == "Mem:" {  print "Total: " $2 "   Free: " $4 "   Avaiable: " $7; }')
 LOAD_AVERAGE=$(cat /proc/loadavg | awk '{ print "Min: "$1"     5 Min: "$2"    15 Min: "$3 ; }')
 UPTIME=$(echo since `uptime -s` " ( " `uptime -p` " )" | sed 's/hours/hs/; s/minutes/min/ ;')
-SERVICE_UPTIME=$(systemctl status ems-bus | awk '/Active/ { print $2" "$3" "$4" "$6$7" "" ( up "$9" "$10" )";  }' | sed -r 's/ago //')
-MAIN_PID=$(systemctl status ems-bus | grep "Main PID:")
+SERVICE_UPTIME=$(systemctl status ems-bus 2> /dev/null | awk '/Active/ { print $2" "$3" "$4" "$6$7" "" ( up "$9" "$10" )";  }' | sed -r 's/ago //')
+MAIN_PID=$(systemctl status ems-bus  2> /dev/null | grep "Main PID:")
 TIME_WAIT_START_SERVER=20  # seconds
 TIME_WAIT_TEST=3 # seconds
 EMAIL_ONLY_ERROR="false"

@@ -346,54 +346,90 @@ to_resource_owner(User, ClientId) ->
 			{ok, ListaPerfil} = ems_user_perfil:find_by_user_and_client(User#user.id, ClientId, [id, name]),
 			ListaPerfilJson = ems_schema:to_json(ListaPerfil),
 			{ok, ListaPermission} = ems_user_permission:find_by_user_and_client(User#user.id, ClientId, [id, name, url, grant_get, grant_post, grant_put, grant_delete]),
-			ListaPermissionJson = ems_schema:to_json(ListaPermission);
+			ListaPermissionJson = ems_schema:to_json(ListaPermission),
+			iolist_to_binary([<<"{"/utf8>>,
+								<<"\"id\":"/utf8>>, integer_to_binary(User#user.id), <<","/utf8>>,
+								<<"\"remap_user_id\":null,"/utf8>>, 
+								<<"\"codigo\":"/utf8>>, integer_to_binary(User#user.codigo), <<","/utf8>>,
+								<<"\"login\":\""/utf8>>, User#user.login, <<"\","/utf8>>, 
+								<<"\"name\":\""/utf8>>, User#user.name, <<"\","/utf8>>,
+								<<"\"email\":\""/utf8>>, User#user.email, <<"\","/utf8>>,
+								<<"\"type\":"/utf8>>, integer_to_binary(User#user.type), <<","/utf8>>,
+								<<"\"subtype\":"/utf8>>, integer_to_binary(User#user.subtype), <<","/utf8>>,
+								<<"\"active\":"/utf8>>, ems_util:boolean_to_binary(User#user.active), <<","/utf8>>,
+								<<"\"cpf\":\""/utf8>>, User#user.cpf, <<"\","/utf8>>,
+								<<"\"lista_perfil\":"/utf8>>, ListaPerfilJson, <<","/utf8>>,
+								<<"\"lista_permission\":"/utf8>>, ListaPermissionJson, 
+							<<"}"/utf8>>]);
 		false ->
 			{ok, ListaPerfil} = ems_user_perfil:find_by_user_and_client(User#user.remap_user_id, ClientId, [id, name]),
 			ListaPerfilJson = ems_schema:to_json(ListaPerfil),
 			{ok, ListaPermission} = ems_user_permission:find_by_user_and_client(User#user.remap_user_id, ClientId, [id, name, url, grant_get, grant_post, grant_put, grant_delete]),
-			ListaPermissionJson = ems_schema:to_json(ListaPermission)
-	end,
-	iolist_to_binary([<<"{"/utf8>>,
-						<<"\"id\":"/utf8>>, integer_to_binary(User#user.id), <<","/utf8>>,
-						<<"\"codigo\":"/utf8>>, integer_to_binary(User#user.codigo), <<","/utf8>>,
-						<<"\"login\":\""/utf8>>, User#user.login, <<"\","/utf8>>, 
-						<<"\"name\":\""/utf8>>, User#user.name, <<"\","/utf8>>,
-						<<"\"email\":\""/utf8>>, User#user.email, <<"\","/utf8>>,
-						<<"\"type\":"/utf8>>, integer_to_binary(User#user.type), <<","/utf8>>,
-						<<"\"subtype\":"/utf8>>, integer_to_binary(User#user.subtype), <<","/utf8>>,
-						<<"\"active\":"/utf8>>, ems_util:boolean_to_binary(User#user.active), <<","/utf8>>,
-						<<"\"cpf\":\""/utf8>>, User#user.cpf, <<"\","/utf8>>,
-						<<"\"lista_perfil\":"/utf8>>, ListaPerfilJson, <<","/utf8>>,
-						<<"\"lista_permission\":"/utf8>>, ListaPermissionJson, 
-					<<"}"/utf8>>]).
+			ListaPermissionJson = ems_schema:to_json(ListaPermission),
+			iolist_to_binary([<<"{"/utf8>>,
+								<<"\"id\":"/utf8>>, integer_to_binary(User#user.id), <<","/utf8>>,
+								<<"\"remap_user_id\":"/utf8>>, integer_to_binary(User#user.remap_user_id), <<","/utf8>>,
+								<<"\"codigo\":"/utf8>>, integer_to_binary(User#user.codigo), <<","/utf8>>,
+								<<"\"login\":\""/utf8>>, User#user.login, <<"\","/utf8>>, 
+								<<"\"name\":\""/utf8>>, User#user.name, <<"\","/utf8>>,
+								<<"\"email\":\""/utf8>>, User#user.email, <<"\","/utf8>>,
+								<<"\"type\":"/utf8>>, integer_to_binary(User#user.type), <<","/utf8>>,
+								<<"\"subtype\":"/utf8>>, integer_to_binary(User#user.subtype), <<","/utf8>>,
+								<<"\"active\":"/utf8>>, ems_util:boolean_to_binary(User#user.active), <<","/utf8>>,
+								<<"\"cpf\":\""/utf8>>, User#user.cpf, <<"\","/utf8>>,
+								<<"\"lista_perfil\":"/utf8>>, ListaPerfilJson, <<","/utf8>>,
+								<<"\"lista_permission\":"/utf8>>, ListaPermissionJson, 
+							<<"}"/utf8>>])
+	end.
 
 
 -spec to_resource_owner(#user{}) -> binary().
 to_resource_owner(undefined) -> <<"{}"/utf8>>;
 to_resource_owner(User) ->
-	iolist_to_binary([<<"{"/utf8>>,
-						<<"\"id\":"/utf8>>, integer_to_binary(User#user.id), <<","/utf8>>,
-						<<"\"codigo\":"/utf8>>, integer_to_binary(User#user.codigo), <<","/utf8>>,
-						<<"\"login\":\""/utf8>>, User#user.login, <<"\","/utf8>>, 
-						<<"\"name\":\""/utf8>>, User#user.name, <<"\","/utf8>>,
-						<<"\"email\":\""/utf8>>, User#user.email, <<"\","/utf8>>,
-						<<"\"type\":"/utf8>>, integer_to_binary(User#user.type), <<","/utf8>>,
-						<<"\"subtype\":"/utf8>>, integer_to_binary(User#user.subtype), <<","/utf8>>,
-						<<"\"active\":"/utf8>>, ems_util:boolean_to_binary(User#user.active), <<","/utf8>>,
-						<<"\"cpf\":\""/utf8>>, User#user.cpf, <<"\","/utf8>>,
-						<<"\"lista_perfil\":{},"/utf8>>, 
-						<<"\"lista_permission\":{}"/utf8>>, 
-					<<"}"/utf8>>]).
+	case User#user.remap_user_id == undefined of
+		true -> 
+			iolist_to_binary([<<"{"/utf8>>,
+								<<"\"id\":"/utf8>>, integer_to_binary(User#user.id), <<","/utf8>>,
+								<<"\"remap_user_id\":null,"/utf8>>, 
+								<<"\"codigo\":"/utf8>>, integer_to_binary(User#user.codigo), <<","/utf8>>,
+								<<"\"login\":\""/utf8>>, User#user.login, <<"\","/utf8>>, 
+								<<"\"name\":\""/utf8>>, User#user.name, <<"\","/utf8>>,
+								<<"\"email\":\""/utf8>>, User#user.email, <<"\","/utf8>>,
+								<<"\"type\":"/utf8>>, integer_to_binary(User#user.type), <<","/utf8>>,
+								<<"\"subtype\":"/utf8>>, integer_to_binary(User#user.subtype), <<","/utf8>>,
+								<<"\"active\":"/utf8>>, ems_util:boolean_to_binary(User#user.active), <<","/utf8>>,
+								<<"\"cpf\":\""/utf8>>, User#user.cpf, <<"\","/utf8>>,
+								<<"\"lista_perfil\":{},"/utf8>>, 
+								<<"\"lista_permission\":{}"/utf8>>, 
+							<<"}"/utf8>>]);
+		false ->
+			iolist_to_binary([<<"{"/utf8>>,
+								<<"\"id\":"/utf8>>, integer_to_binary(User#user.id), <<","/utf8>>,
+								<<"\"remap_user_id\":"/utf8>>, integer_to_binary(User#user.remap_user_id), <<","/utf8>>,
+								<<"\"codigo\":"/utf8>>, integer_to_binary(User#user.codigo), <<","/utf8>>,
+								<<"\"login\":\""/utf8>>, User#user.login, <<"\","/utf8>>, 
+								<<"\"name\":\""/utf8>>, User#user.name, <<"\","/utf8>>,
+								<<"\"email\":\""/utf8>>, User#user.email, <<"\","/utf8>>,
+								<<"\"type\":"/utf8>>, integer_to_binary(User#user.type), <<","/utf8>>,
+								<<"\"subtype\":"/utf8>>, integer_to_binary(User#user.subtype), <<","/utf8>>,
+								<<"\"active\":"/utf8>>, ems_util:boolean_to_binary(User#user.active), <<","/utf8>>,
+								<<"\"cpf\":\""/utf8>>, User#user.cpf, <<"\","/utf8>>,
+								<<"\"lista_perfil\":{},"/utf8>>, 
+								<<"\"lista_permission\":{}"/utf8>>, 
+							<<"}"/utf8>>])
+	end.
 
 
 -spec new_from_map(map(), #config{}) -> {ok, #user{}} | {error, atom()}.
-new_from_map(Map, _Conf) ->
+new_from_map(Map, Conf) ->
 	try
 		PasswdCrypto = maps:get(<<"passwd_crypto">>, Map, <<>>),
 		Password = maps:get(<<"password">>, Map, <<>>),
+		LoginBin = maps:get(<<"login">>, Map),
+		Login = ?UTF8_STRING(LoginBin),
 		{ok, #user{	id = maps:get(<<"id">>, Map),
 					codigo = maps:get(<<"codigo">>, Map, undefined),
-					login = ?UTF8_STRING(maps:get(<<"login">>, Map)),
+					login = Login,
 					name = ?UTF8_STRING(maps:get(<<"name">>, Map)),
 					cpf = maps:get(<<"cpf">>, Map, <<>>),
 					password = case PasswdCrypto of
@@ -420,8 +456,9 @@ new_from_map(Map, _Conf) ->
 					matricula = maps:get(<<"matricula">>, Map, undefined),
 					type = maps:get(<<"type">>, Map, 1),
 					subtype = maps:get(<<"subtype">>, Map, 0),
-					active = maps:get(<<"matricula">>, Map, true),
+					active = maps:get(<<"active">>, Map, true),
 					remap_user_id = maps:get(<<"remap_user_id">>, Map, undefined),
+					admin = maps:get(<<"admin">>, Map, lists:member(LoginBin, Conf#config.cat_restricted_services_admin)),
 					ctrl_path = maps:get(<<"ctrl_path">>, Map, <<>>),
 					ctrl_file = maps:get(<<"ctrl_file">>, Map, <<>>),
 					ctrl_modified = maps:get(<<"ctrl_modified">>, Map, undefined),

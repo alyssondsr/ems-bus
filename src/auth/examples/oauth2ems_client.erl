@@ -1,7 +1,7 @@
 -module(oauth2ems_client).
 
 -export([callback/1]).
--include("../include/ems_schema.hrl").
+-include("include/ems_schema.hrl").
 
 %-define(REDIRECT_URI, <<"https://164.41.120.43:2344/callback">>).
 %-define(CLIENTID, <<"q1w2e3">>).
@@ -75,12 +75,12 @@ format(_Error)-> {error, "access_denied"}.
 ok(Request, Body) ->
 			{ok, Request#request{code = 200, 
 								 response_data = Body,
-								 content_type = <<"application/json;charset=UTF-8">>}
+								 content_type_out = <<"application/json;charset=UTF-8">>}
 			}.		
 bad(Request, Reason) ->
   {error, Request#request{code = 401, 
 								 response_data = Reason,
-								 content_type = <<"application/json;charset=UTF-8">>}
+								 content_type_out = <<"application/json;charset=UTF-8">>}
 	}.
 
 

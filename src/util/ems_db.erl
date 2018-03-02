@@ -10,12 +10,11 @@
 
 -export([start/0]).
 -export([get/2, exist/2, all/1, insert/1, insert/2, update/1, delete/2, 
-		 match/2, find/2, find/3, find/5, find_by_id/2, find_by_id/3, filter/2, 
-		 filter_with_limit/4, select_fields/2, 
+		 match/2, find/2, find/3, find/5, find_by_id/2, find_by_id/3, filter/2,
 		 find_first/2, find_first/3, find_first/4, field_position/3]).
 -export([init_sequence/2, sequence/1, sequence/2, current_sequence/1]).
 -export([init_counter/2, counter/2, current_counter/1, inc_counter/1, dec_counter/1]).
--export([get_connection/1, release_connection/1, get_sqlite_connection_from_csv_file/1, create_datasource_from_map/1, create_datasource_from_map/2]).
+-export([get_connection/1, release_connection/1, get_sqlite_connection_from_csv_file/1, create_datasource_from_map/3]).
 -export([get_param/1, get_param/2, set_param/2, get_re_param/2]).
 
 -include("include/ems_config.hrl").
@@ -683,10 +682,10 @@ filter(Tab, FilterList) when is_list(FilterList) ->
 			FieldsTable =  mnesia:table_info(Tab, attributes),
 			Where = string:join([io_lib:format("element(~s, R) ~s ~p", [integer_to_list(field_position(F, FieldsTable, 2)), Op,  field_value(V)]) || {F, Op, V} <- FilterList], ","),
 			ExprQuery = binary_to_list(iolist_to_binary([<<"[R || R <- mnesia:table(">>, atom_to_binary(Tab, utf8), <<"), ">>, Where, <<"].">>])),
-			ParsedQuery = qlc:string_to_handle(ExprQuery),
-			mnesia:activity(async_dirty, fun () -> qlc:eval(ParsedQuery) end)
+			qlc:string_to_handle(ExprQuery)
 		end,
-	ems_cache:get(ems_db_parsed_query_cache, ?LIFE_TIME_PARSED_QUERY, {Tab, FilterList}, F);
+	ParsedQuery = ems_cache:get(ems_db_parsed_query_cache, ?LIFE_TIME_PARSED_QUERY, {filter, Tab, FilterList}, F),
+	mnesia:activity(async_dirty, fun () -> qlc:eval(ParsedQuery) end);
 filter(Tab, FilterTuple) when is_tuple(FilterTuple) ->
 	filter(Tab, [FilterTuple]).
 
@@ -749,16 +748,16 @@ filter_with_limit(Tab, FilterList, Limit, Offset) when is_list(FilterList) ->
 					FieldsTable =  mnesia:table_info(Tab, attributes),
 					Where = string:join([io_lib:format("element(~s, R) ~s ~p", [integer_to_list(field_position(F, FieldsTable, 2)), Op,  field_value(V)]) || {F, Op, V} <- FilterList], ","),
 					ExprQuery = binary_to_list(iolist_to_binary([<<"[R || R <- mnesia:table(">>, atom_to_binary(Tab, utf8), <<"), ">>, Where, <<"].">>])),
-					ParsedQuery = qlc:string_to_handle(ExprQuery),
-					mnesia:activity(async_dirty, fun () -> 
-													Records = qlc:eval(ParsedQuery),
-													case Offset > length(Records) of
-														true -> [];
-														false -> lists:sublist(Records, Offset, Limit)
-													end
-												 end)
+					qlc:string_to_handle(ExprQuery)
 				end,
-			ems_cache:get(ems_db_parsed_query_cache, ?LIFE_TIME_PARSED_QUERY, {Tab, FilterList, Limit, Offset}, F)
+			ParsedQuery = ems_cache:get(ems_db_parsed_query_cache, ?LIFE_TIME_PARSED_QUERY, {filter_with_limit, Tab, FilterList}, F),
+			mnesia:activity(async_dirty, fun () -> 
+								Records = qlc:eval(ParsedQuery),
+								case Offset > length(Records) of
+									true -> [];
+									false -> lists:sublist(Records, Offset, Limit)
+								end
+							 end)
 	end;
 filter_with_limit(Tab, FilterTuple, Limit, Offset) when is_tuple(FilterTuple) -> 	
 	filter_with_limit(Tab, [FilterTuple], Limit, Offset).
@@ -926,12 +925,30 @@ parse_datasource_sql_check_validation_connection(_, undefined) -> undefined;
 parse_datasource_sql_check_validation_connection(_, <<>>) -> undefined;
 parse_datasource_sql_check_validation_connection(_, _) -> erlang:error(einvalid_datasource_sql_check_validation_connection_property).
 
--spec create_datasource_from_map(map()) -> #service_datasource{} | undefined.
-create_datasource_from_map(M) -> create_datasource_from_map(M, undefined).
+parse_extends_datasource(Map, GlobalDatasources) ->
+	case maps:get(<<"extends">>, Map, undefined) of
+		undefined -> Map;
+		NameBaseDs ->
+			case maps:get(NameBaseDs, GlobalDatasources, undefined) of
+				undefined -> erlang:error(eextends_inexistent_datasource);
+				BaseDs -> 
+					BaseDsMap = #{<<"type">> => atom_to_binary(BaseDs#service_datasource.type, utf8),
+								  <<"connection">> => list_to_binary(BaseDs#service_datasource.connection),
+								  <<"timeout">> => BaseDs#service_datasource.timeout,
+								  <<"driver">> => atom_to_binary(BaseDs#service_datasource.driver, utf8),
+								  <<"sql_check_valid_connection">> => list_to_binary(BaseDs#service_datasource.sql_check_valid_connection),
+								  <<"check_valid_connection_timeout">> => BaseDs#service_datasource.check_valid_connection_timeout,
+								  <<"close_idle_connection_timeout">> => BaseDs#service_datasource.close_idle_connection_timeout,
+								  <<"max_pool_size">> => BaseDs#service_datasource.max_pool_size,
+								  <<"show_remap_fields">> => BaseDs#service_datasource.show_remap_fields},
+					maps:merge(BaseDsMap, Map)
+			end
+	end.
 
--spec create_datasource_from_map(map(), non_neg_integer()) -> #service_datasource{} | undefined.
-create_datasource_from_map(M, Rowid) ->
+-spec create_datasource_from_map(map(), non_neg_integer(), map()) -> #service_datasource{} | undefined.
+create_datasource_from_map(Map, Rowid, GlobalDatasources) ->
 	try
+		M = parse_extends_datasource(Map, GlobalDatasources),
 		Type = parse_datasource_type(maps:get(<<"type">>, M, undefined)),
 		Driver = parse_data_source_driver(Type, maps:get(<<"driver">>, M, undefined)),
 		Connection = parse_datasource_connection(Type, maps:get(<<"connection">>, M, undefined)),
@@ -954,7 +971,7 @@ create_datasource_from_map(M, Rowid) ->
 		SqlCheckValidConnection = parse_datasource_sql_check_validation_connection(Type, maps:get(<<"sql_check_valid_connection">>, M, undefined)),
 		CloseIdleConnectionTimeout = ems_util:parse_range(maps:get(<<"close_idle_connection_timeout">>, M, ?CLOSE_IDLE_CONNECTION_TIMEOUT), 1, ?MAX_CLOSE_IDLE_CONNECTION_TIMEOUT),
 		CheckValidConnectionTimeout = ems_util:parse_range(maps:get(<<"check_valid_connection_timeout">>, M, ?CHECK_VALID_CONNECTION_TIMEOUT), 1, ?MAX_CLOSE_IDLE_CONNECTION_TIMEOUT),
-		CtrlHash = erlang:phash2([Type, Driver, Connection, TableName, Fields, 
+		CtrlHash = erlang:phash2([Rowid, Type, Driver, Connection, TableName, Fields, 
 								  PrimaryKey, ForeignKey, ForeignTableName, CsvDelimiter, 
 								  Sql, Timeout, MaxPoolSize, 
 								  SqlCheckValidConnection, CloseIdleConnectionTimeout, 
@@ -1005,7 +1022,7 @@ create_datasource_from_map(M, Rowid) ->
 		 end										
 	catch
 		_:Reason-> 
-			ems_logger:format_error("ems_db parse invalid datasource ~p. Reason: ~p.\n", [M, Reason]),
+			ems_logger:format_error("ems_db parse invalid datasource ~p. Reason: ~p.\n", [Map, Reason]),
 			undefined
 	end.
 	

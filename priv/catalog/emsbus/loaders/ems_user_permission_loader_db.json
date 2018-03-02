@@ -8,10 +8,10 @@
 	"async": false,
 	"type": "KERNEL",
 	"lang" : "erlang",
-	"update_checkpoint" : 140000,
+	"update_checkpoint" : 30000,
 	"check_remove_records" : true,
 	"datasource" : "ds_ems_user_loader",
-	"start_timeout" : 5000,
+	"start_timeout" : 2000,
 	"middleware" : "ems_user_permission_loader_middleware",
 	"pool_size" : 1,
 	"pool_max" : 1,
@@ -25,7 +25,8 @@
 					pt.PTrAlterar as UpdateGrant, 
 					pt.PTrExcluir as GrantDelete,
 					t.TraNomeFrm as url,
-					t.TraNomeMenu as name 
+					t.TraNomeMenu as name,
+					up.APePerId as perfil_id 
 			from BDAcesso.dbo.TB_Usuario u join BDAcesso.dbo.TB_Acessos_Perfil up  
 							  on u.UsuId = up.APeUsuId 
 					join BDAcesso.dbo.TB_Perfil_Transacao pt 
@@ -45,7 +46,8 @@
 					pt.PTrAlterar as UpdateGrant,  
 					pt.PTrExcluir as GrantDelete, 
 					t.TraNomeFrm as url, 
-					t.TraNomeMenu as name  
+					t.TraNomeMenu as name,
+					up.APePerId as perfil_id 
 			from BDAcesso.dbo.TB_Usuario u join BDAcesso.dbo.TB_Acessos_Perfil up  
 							  on u.UsuId = up.APeUsuId 
 					join BDAcesso.dbo.TB_Perfil_Transacao pt 
@@ -58,5 +60,5 @@
 				  pt.PTrDataAlteracao >= ? or pt.PTrDataCadastramento >= ? or 
 				  t.TraDataAlteracao >= ? or t.TraDataCadastramento >= ?
 			",
-	"fields" : ["id", "user_id", "client_id", "grant_get", "grant_post", "grant_put", "grant_delete", "url", "name"]
+	"fields" : ["id", "user_id", "client_id", "grant_get", "grant_post", "grant_put", "grant_delete", "url", "name", "perfil_id"]
 }

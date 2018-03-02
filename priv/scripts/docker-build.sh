@@ -19,20 +19,20 @@
 #
 ########################################################################################################
 
-clear
-
 CURRENT_DIR=$(pwd)
-VERSION_SCRIPT="1.0.0"
+VERSION_SCRIPT="2.0.0"
+
+clear
+echo "Build ErlangMs images for apps with Docker and ErlangMS Technology ( Version $VERSION_SCRIPT  Date: $(date '+%d/%m/%Y %H:%M:%S') )"
 
 
 # Imprime na tela a ajuda do comando
 help() {
-	echo "Build erlang docker image frontend (Version $VERSION_SCRIPT)"
-	echo "how to use: sudo ./build.sh"
+	echo "How to use: sudo ./build.sh"
 	echo ""
 	echo "Additional parameters:"
 	echo "  --app                        -> name of docker app"
-	echo "  --tag                        -> Build specific gitlab tag version of project. The default is the lastest tag"
+	echo "  --tag                        -> build specific gitlab tag version of project. The default is the lastest tag"
 	echo "  --base_url_git_project       -> base url of gitlab. The default is http://servicosssi.unb.br/ssi"
 	echo "  --app_url_git                -> project url to build. The default is http://servicosssi.unb.br/ssi/[project_name]_frontend.git"
 	echo "  --registry                   -> registry server"
@@ -63,7 +63,7 @@ help() {
 #  $1  - Mensagem que será impressa 
 #  $2  - Código de Return para o comando exit
 die () {
-    echo $1
+    printf $1 "\n"
     exit $2
 }
 
@@ -84,8 +84,8 @@ fi
 # Versões do npm e node necessárias. 
 # Será verificado se as versões instaladas estão igual ou maiores do que as definidas aqui
 NPM_VERSION="4.2.0"
-NODE_VERSION="v7.10.0"
-DOCKER_VERSION="17.03.2"
+NODE_VERSION="7.10.0"
+DOCKER_VERSION="5.6.0"
 
 
 # Identify the linux distribution: ubuntu, debian, centos
@@ -123,16 +123,17 @@ ERLANGMS_DOCKER_GIT_URL="https://github.com/erlangMS/docker"
 # variável opcional para dizer qual modo de build da aplicação
 # deixa em branço para pedir na execução do build
 MODE_BUILD=""
+BUILD_FROM_MASTER="false"
 
 
 # Registry server daemon to catalog images
-REGISTRY_IP="127.0.0.1"
+REGISTRY_IP=""
 REGISTRY_PORT="5000"
-REGISTRY_SERVER="$REGISTRY_IP:$REGISTRY_PORT"
+REGISTRY_SERVER=""
 
 # Flag para controle do que vai ser feito
 SKIP_BUILD="false"
-SKIP_PUSH="true"
+SKIP_PUSH="" 
 SKIP_CHECK="false"
 
 # Git credentials
@@ -154,7 +155,7 @@ SMTP_RE_CHECK="^[a-z0-9!#\$%&'*+/=?^_\`{|}~-]+(\.[a-z0-9!#$%&'*+/=?^_\`{|}~-]+)*
 CACHE_NODE_MODULES="false"
 
 # Se este flag for true, após o build a stage área não será removida. Obs.: Para finalidades de debug
-KEEP_STAGE="false"
+KEEP_STAGE="true"
 
 LOG_FILE="$CURRENT_DIR/docker-build.log"
 
@@ -183,7 +184,6 @@ le_all_settings () {
 	if [ -f "$CONFIG_ARQ" ]; then
 		printf "OK\n"
 		echo "Reading settings from $CONFIG_ARQ..."
-		REGISTRY=$(le_setting 'REGISTRY' "$REGISTRY_SERVER")
 		GIT_USER=$(le_setting 'GIT_USER' '""')
 		GIT_PASSWD=$(le_setting 'GIT_PASSWD' '""')
 		ERLANGMS_RELEASE_URL=$(le_setting 'ERLANGMS_RELEASE_URL' "$ERLANGMS_RELEASE_URL")
@@ -255,34 +255,42 @@ install_required_libs(){
 				break
 			fi
 		done
-		echo "Installing required packages $REQUIRED_PCK..."
+		echo "Installing required libs $REQUIRED_PCK..."
 		apt-get -y install $REQUIRED_PCK > /dev/null 2>&1
-	else
-		echo "Skipping required packages to build docker images because it is already installed."
 	fi
 }
 
 
 # setup project
 prepare_project_to_build(){
-	echo "Clone project $APP_URL_GIT..."
+	if [ "$MODE_BUILD" = "dev" ]; then
+		echo "Preparing $APP_NAME to build in development mode, please wait..."
+	else
+		echo "Preparing $APP_NAME to build in production mode, please wait..."
+	fi
 
-	cd build
+	# Clone git project app if it does not emsbus
 	echo "Git clone $APP_URL_GIT $APP_NAME"
 	if ! git clone $APP_URL_GIT $APP_NAME 2> /dev/null ; then
-		die "Could not access project repository $APP_URL_GIT. Check your network connection or password!"
+		die "Fatal: Could not access project repository $APP_URL_GIT, check your network connection or password!"
 	fi
 	 
 	cd $APP_NAME
 	
-	# Faz build da última tag gerada se não foi informado o parâmetro --tag
-	if [ -z $GIT_CHECKOUT_TAG ]; then
-		GIT_CHECKOUT_TAG=$(git tag -l --sort=-creatordate | sed '1!d')
+	# Faz clone da última tag gerada do projeto se não foi informado o parâmetro --tag
+	# Se não há nenhuma tag e não foi informado --tag, faz da master mesmo
+	if [ -z "$GIT_CHECKOUT_TAG" ]; then
+		GIT_CHECKOUT_TAG="$(git tag -l --sort=-creatordate | sed '1!d')"
+		if [ -z "$GIT_CHECKOUT_TAG" ]; then
+			echo "Git checkout from master..."
+			BUILD_FROM_MASTER="true"
+		else
+			echo "Git checkout from lastest tag..."
+			echo "exec: git checkout -b $GIT_CHECKOUT_TAG"
+			git checkout -b $GIT_CHECKOUT_TAG
+			[ "$?" = "0" ] | die "Fatal: Could not git checkout $GIT_CHECKOUT_TAG!"
+		fi
 	fi
-	
-	echo "Git checkout -b $GIT_CHECKOUT_TAG"
-	git checkout -b $GIT_CHECKOUT_TAG
-	echo "Return git checkout -b $GIT_CHECKOUT_TAG: $?"
 	
 	# Get expose http and https ports from Dockerfile
 	if [ -z "$HTTP_PORT" ]; then
@@ -291,39 +299,40 @@ prepare_project_to_build(){
 	
 	if [ -z "$HTTPS_PORT" ]; then
 		HTTPS_PORT=$(grep ems_https_server.tcp_port emsbus.conf | sed -r 's/[^0-9]//g')
-	fi
+		fi
 
 	[ -z "$HTTP_PORT" ] && die "HTTP port of project not informed, build canceled. Enter the parameter --http_port!"
 	[ -z "$HTTPS_PORT" ] && die "HTTPS port of project not informed, build canceled. Enter the parameter --https_port!"
 
-	# Atualiza o arquivo Dockerfile com as portas expostas
-	sed -i "s/{{ HTTP_PORT }}/$HTTP_PORT/"  ../../Dockerfile
-	sed -i "s/{{ HTTPS_PORT }}/$HTTPS_PORT/"  ../../Dockerfile
-	
-	# Atualiza o arquivo docker-compose.yml
-	sed -i "s/{{ HTTP_PORT }}/$HTTP_PORT/g"  ../../docker-compose.yml
-	sed -i "s/{{ HTTPS_PORT }}/$HTTPS_PORT/g"  ../../docker-compose.yml
-	sed -i "s/{{ APP_NAME }}/$APP_NAME/g"  ../../docker-compose.yml
-	sed -i "s/{{ APP_NAME }}/$APP_NAME/g"  ../../docker-compose.yml
-	
-	# Cria o arquivo emsbus.conf para a pasta conf do docker template
+	# Copia o arquivo emsbus.conf para a pasta conf do docker template
 	mkdir -p ../../conf/
 	cp emsbus.conf ../../conf/
+	cd ../../
 	
+	# Atualiza o arquivo Dockerfile com as portas expostas
+	sed -i "s/{{ HTTP_PORT }}/$HTTP_PORT/"  Dockerfile
+	sed -i "s/{{ HTTPS_PORT }}/$HTTPS_PORT/"  Dockerfile
+	
+	# Atualiza o arquivo docker-compose.yml
+	sed -i "s/{{ HTTP_PORT }}/$HTTP_PORT/g"  docker-compose.yml
+	sed -i "s/{{ HTTPS_PORT }}/$HTTPS_PORT/g"  docker-compose.yml
+	sed -i "s/{{ APP_NAME }}/$APP_NAME/g"  docker-compose.yml
+	sed -i "s/{{ APP_NAME }}/$APP_NAME/g"  docker-compose.yml
+	
+	cd build/$APP_NAME
 }
 
-
-# Performs the installation of the ems-bus
-build_image(){
+# Build app (if necessary)
+build_app(){
+	echo "Start build $APP_NAME, please wait..."
 	
-	# ***** npm install *****
+	
+	#  ##################### BUILD NPM PROJECT ######################
 
-	# Só executado quando há o arquivo package.json
-	if [ -f package.json ]; then
+	if [ -f package.json ]; then # If exist package.json, build node project
 		# Quando o flag CACHE_NODE_MODULES for true, vamos usar uma pasta de cache para node_modules e 
 		# criar um hard link. Isso vai acelerar e muito!!! 
 		if [ "$CACHE_NODE_MODULES" = "true" ]; then
-			echo "node_modules cache enabled"
 			NODE_MODULES_CACHE_PATH="/tmp/erlangms/build/node_modules"
 			if [ -d NODE_MODULES_CACHE_PATH ]; then
 				echo "Let go make drink, this will take time!!!"
@@ -337,7 +346,7 @@ build_image(){
 			echo "Let go make coffee, this will take time!!!"
 		fi
 		
-		echo "Node project detected..."
+		echo "Build node project app..."
 		echo "npm install..."
 		npm install
 		echo "Return npm install: $?"
@@ -357,16 +366,19 @@ build_image(){
 		mv dist/ ../../app/$APP_NAME/
 		cd ../../
 	else
+		#  ##################### BUILD STATIC FILE PROJECT ######################
+	
+		# Only copy files, no build necessary
 		echo "Copy sources files to ../../app/$APP_NAME..."
 		cd ..
 		mv $APP_NAME/ ../app/$APP_NAME/
 		cd ..
 	fi
+}
 
-
-	# ***** Build docker image *****
-
-	echo "Preparing for build docker image to app $APP_NAME, please wait..."
+# Build docker image
+build_image(){
+	echo "Start build docker image $APP_NAME, please wait..."
 
 	# Format app version do docker
 	APP_VERSION=$(echo "$GIT_CHECKOUT_TAG" | sed -r 's/[^0-9.]+//g')
@@ -376,9 +388,6 @@ build_image(){
 
 	# Nome da imagem no docker com sufixo latest
 	APP_DOCKER_LATEST=$APP_NAME:latest
-
-
-	
 
 	echo "Build image $APP_DOCKER_LATEST"
 	docker swarm leave --force
@@ -400,11 +409,9 @@ build_image(){
 	echo "docker tag $APP_DOCKER_FILENAME $APP_DOCKER_LATEST"
 	docker tag $APP_DOCKER_FILENAME $APP_DOCKER_LATEST
 	
-	
 	# create stack of services
 	echo "docker swarm init"
 	docker swarm init
-
 
 	# Create network:
 	echo "docker network create -d overlay $APP_NAME"
@@ -460,10 +467,10 @@ check_send_email(){
 # Verifica se a versão do npm instalado é compatível com este script de build
 check_npm_version(){
 	printf "Checking installed npm version... "
-	npm --version > /dev/null || die "O npm não está instalado, build cancelado!"
-	NPM_VERSION_OS=$(npm --version)
-	NPM_VERSION2=$(echo $NPM_VERSION | sed -r 's/[^0-9]+//g')
-	NPM_VERSION_OS=$(echo $NPM_VERSION_OS | sed -r 's/[^0-9]+//g')
+	npm --version 1> /dev/null 2> /dev/null || die "O npm não está instalado, build cancelado!"
+	NPM_VERSION2=$(echo $NPM_VERSION | sed -r 's/[^0-9.]+//g' | sed -r 's/(^[0-9]{1,3})\..+/\1/')
+	NPM_VERSION_OS=$(npm --version 2>  /dev/null | sed '1!d')
+	NPM_VERSION_OS=$(echo $NPM_VERSION_OS | sed -r 's/[^0-9.]+//g' | sed -r 's/(^[0-9]{1,3})\..+/\1/')
 	if [ "$NPM_VERSION_OS" -ge "$NPM_VERSION2" ]; then
 		printf "OK\n"
 	else
@@ -477,9 +484,9 @@ check_npm_version(){
 check_node_version(){
 	printf "Checking installed node version ... "
 	node --version > /dev/null || die "O node não está instalado, build cancelado!"
-	NODE_VERSION_OS=$(node --version)
-	NODE_VERSION2=$(echo $NODE_VERSION | sed -r 's/[^0-9]+//g')
-	NODE_VERSION_OS=$(echo $NODE_VERSION_OS | sed -r 's/[^0-9]+//g')
+	NODE_VERSION2=$(echo "$NODE_VERSION" | sed -r 's/[^0-9.]+//g' | sed -r 's/(^[0-9]{1,3})\..+/\1/')
+	NODE_VERSION_OS=$(node --version 2> /dev/null)
+	NODE_VERSION_OS=$(echo "$NODE_VERSION_OS" | sed -r 's/[^0-9.]+//g' | sed -r 's/(^[0-9]{1,3})\..+/\1/')
 	if [ "$NODE_VERSION_OS" -ge "$NODE_VERSION2" ]; then
 		printf "OK\n"
 	else
@@ -492,9 +499,9 @@ check_node_version(){
 check_docker_version(){
 	printf "Checking installed docker version... "
 	docker --version > /dev/null || die "Docker is not installed, start canceled!"
+	DOCKER_VERSION2=$(echo $DOCKER_VERSION | sed -r 's/[^0-9.]+//g' | sed -r 's/(^[0-9]{1,3})\..+/\1/')
 	DOCKER_VERSION_OS=$(docker --version)
-	DOCKER_VERSION2=$(echo $DOCKER_VERSION | sed -r 's/[^0-9]+//g')
-	DOCKER_VERSION_OS=$(echo $DOCKER_VERSION_OS | sed -r 's/[^0-9]+//g')
+	DOCKER_VERSION_OS=$(echo $DOCKER_VERSION_OS | sed -r 's/[^0-9.]+//g' | sed -r 's/(^[0-9]{1,3})\..+/\1/')
 	if [ "$DOCKER_VERSION_OS" -ge "$DOCKER_VERSION2" ]; then
 		printf "OK\n"
 	else
@@ -509,51 +516,121 @@ check_docker_version(){
 # que o computador onde está sendo feito o build tenha o 
 # arquivo de configuração /etc/docker/daemon.json
 # para liberar conexões HTTP inseguras
-push_registry(){
+check_push_registry(){
 	if docker info > /dev/null 2>&1 ; then
-		if nc -z $REGISTRY_IP $REGISTRY_PORT ; then
-			
-			# Cria /etc/docker/daemon.json SOMENTE se não existe!
-			if [ ! -f /etc/docker/daemon.json ]; then
-				echo "/etc/docker/daemon.json does not exist, creating it..."
-				echo "{ \"insecure-registries\": [\"$REGISTRY_IP:$REGISTRY_PORT\"] }" > /etc/docker/daemon.json
-				echo "Restart systemctl docker.service daemon after creating /etc/docker/daemon.json..."
-				systemctl restart docker > /dev/null 2>&1
-			fi
-			
-			# É necessário criar uma tag para enviar para o registry
-			PUSH_TAG="$REGISTRY_SERVER/$APP_NAME"
-
-			echo "Tag the image $APP_NAME so that it points to your registry $PUSH_TAG"
-			docker tag $APP_NAME $PUSH_TAG
-			
-			echo "Push $PUSH_TAG to $REGISTRY_SERVER"
-			docker push $REGISTRY_SERVER/$APP_NAME
-		else
-			echo "Registry server daemon $REGISTRY_SERVER is out, you will not be able to push docker image $APP_DOCKER_LATEST.tar now"
+		
+		# Crate /etc/docker/daemon.json SOMENTE if does not exist
+		if [ ! -f /etc/docker/daemon.json ]; then
+			echo "File /etc/docker/daemon.json does not exist, creating it..."
+			echo "{ \"insecure-registries\": [\"$REGISTRY_IP:$REGISTRY_PORT\"] }" > /etc/docker/daemon.json
+			echo "Restart systemctl docker.service daemon after creating /etc/docker/daemon.json..."
+			systemctl restart docker > /dev/null 2>&1
 		fi
+
+		# Push the generated image to specific registry
+		if [ ! -z "$REGISTRY" ]; then
+			push_registry		
+		else
+			# Check with user if push images to Docker Registry
+			DO_PUSH="y"
+			printf 'Push the generated image to the Docker Registry servers: [Y/n] '
+			while true; do
+				read DO_PUSH
+				if [[ ! $DO_PUSH =~ [yYnN] ]]; then
+					printf 'Ops, push the generated image to the Docker Registry servers: [Y/n] '
+				else
+					break
+				fi
+			done
+
+			if [[ "$DO_PUSH" = "Y" || "$DO_PUSH" = "y" ]]; then
+				PUSH_MESSAGE='\tEnter the IP or DNS of the Registry server (Example: desenvservicos.unb.br): '
+				CANCEL_PUSH="n"
+				while [[ ! "$CANCEL_PUSH" = "Y" && ! "$CANCEL_PUSH" = "y" ]]; do
+					echo
+					echo "---------------------------------------------------------------------------------------------------"
+					printf "$PUSH_MESSAGE"
+					read REGISTRY
+					if [ ! -z "$REGISTRY" ]; then
+						REGISTRY_PORT="5000"
+						if [[ "$REGISTRY" =~ ^[0-9a-zA-Z_.]+:[0-9]+$ ]] ; then
+							REGISTRY_PORT=$(echo $REGISTRY | awk -F: '{ print $2; }')
+							REGISTRY_SERVER=$REGISTRY
+						elif [[ $REGISTRY =~ ^[0-9a-zA-Z_-.]+$ ]] ; then
+							REGISTRY_SERVER=$REGISTRY:$REGISTRY_PORT
+						else
+							die "\tIP or DNS of server is invalid. Example: 127.0.0.1 or localhost"
+						fi
+						REGISTRY_IP="$(echo $REGISTRY_SERVER | cut -d: -f1)"
+						push_registry
+						PUSH_MESSAGE='\tEnter the IP or DNS of the next Registry server: '
+					else
+						printf '\tDo you want cancel push images? [Y/n] '
+						read CANCEL_PUSH
+						echo
+						PUSH_MESSAGE='\tEnter the IP or DNS of the next Registry server: '
+					fi
+				done
+			fi
+		fi
+		
 	else
 		echo "Docker on the client must be running to push the image to the registry!"
 	fi
 }
 
+push_registry(){
+	if $(host "$REGISTRY_IP" 2> /dev/null 1> /dev/null); then
+		if nc -z $REGISTRY_IP $REGISTRY_PORT ; then
+			PUSH_TAG="$REGISTRY_SERVER/$APP_NAME"
+			docker tag $APP_NAME $PUSH_TAG
+			echo
+			echo "Push $PUSH_TAG to $REGISTRY_SERVER"
+			docker push $REGISTRY_SERVER/$APP_NAME
+
+			echo
+			
+			# Check if deploy
+			#DO_DEPLOY="y"
+			#printf '\n\tYou want to deploy the app in this environment: [Y/n] '
+			#while true; do
+			#	read DO_DEPLOY
+			#	if [[ ! $DO_DEPLOY =~ [yYnN] ]]; then
+			#		printf '\tOps, You want to deploy the app in this environment: [Y/n] '
+			#	else
+			#		break
+			#	fi
+			#done
+
+			#if [[ "$DO_DEPLOY" = "Y" || "$DO_DEPLOY" = "y" ]]; then
+			#	echo deploy...
+			#fi
+			
+		else
+			printf "\tError: Registry server daemon $REGISTRY_SERVER is out, you will not be able to push image.\n"
+		fi
+	else
+		printf "\tError: Registry server $REGISTRY_SERVER is out, you will not be able to push image.\n"
+	fi
+}
 
 # IMPORTANTE
 # Stage área é onde o build é realizado, um local temporário onde arquivos são criados e modificados. 
 # Depois do processo de build, esta área é por default eliminada.
-# Criar a área stage: Envia todos os arquivos do build necessários para lá.
-# O build não altera nenhum arquivo do projeto pois tudo é realizado na stage.
+# O build não altera nenhum arquivo do projeto no git pois tudo é realizado na stage.
 make_stage_area(){
+	echo "Preparing state area for build temporary files, please wait..."
 	STAGE_AREA=/tmp/erlangms/docker/build_$$/
 	mkdir -p $STAGE_AREA
 	cd $STAGE_AREA
-	echo "Stage area $STAGE_AREA..."
-	if ! git clone "$ERLANGMS_DOCKER_GIT_URL" docker ; then
-		die "Could not access erlangms docker template $ERLANGMS_DOCKER_GIT_URL. Check your network or internet connection!"
+	echo "Stage area is $STAGE_AREA"
+	if ! git clone "$ERLANGMS_DOCKER_GIT_URL" docker 2>&1 > /dev/null ; then
+		die "Fatal: Could not access erlangms docker template $ERLANGMS_DOCKER_GIT_URL. Check your network or internet connection!"
 	fi
 	cd docker
 	mkdir -p app
 	mkdir -p build
+	cd build
 }
 
 ######################################## main ########################################
@@ -581,11 +658,11 @@ for P in $*; do
 		APP_URL_GIT="$(echo $P | cut -d= -f2)"
 	elif [[ "$P" =~ ^--registry=.+$ ]]; then
 		REGISTRY="$(echo $P | cut -d= -f2)"
-	elif [[ "$P" =~ ^--skip_build$ ]]; then
+	elif [[ "$P" =~ ^--skip[_-]build$ ]]; then
 		SKIP_BUILD="$(echo $P | cut -d= -f2)"
-	elif [[ "$P" =~ ^--skip_push$ ]]; then
+	elif [[ "$P" =~ ^--skip[_-]push$ ]]; then
 		SKIP_PUSH="$(echo $P | cut -d= -f2)"
-	elif [[ "$P" =~ ^--skip_check$ ]]; then
+	elif [[ "$P" =~ ^--skip[_-]check$ ]]; then
 		SKIP_CHECK="$(echo $P | cut -d= -f2)"
 	elif [[ "$P" =~ ^--git_user=.+$ ]]; then
 		GIT_USER="$(echo $P | cut -d= -f2)"
@@ -636,8 +713,6 @@ if [ ! -z "$REGISTRY" ]; then
 		die "Parameter --registry $REGISTRY is invalid. Example: 127.0.0.1:5000"
 	fi
 	REGISTRY_IP="$(echo $REGISTRY_SERVER | cut -d: -f1)"
-else
-	die "Parameter --registry is required. Example: 127.0.0.1:5000"
 fi
 
 
@@ -650,65 +725,70 @@ if [ -z "$HTTPS_PORT" ]; then
 fi
 
 
-make_stage_area
-
-
 # Enables installation logging
 exec > >(tee -a ${LOG_FILE} )
 exec 2> >(tee -a ${LOG_FILE} >&2)
 
 
-echo "Start build of erlangms frontend images ( Date: $(date '+%d/%m/%Y %H:%M:%S') )"
+if [ "$SKIP_BUILD" = "false" ]; then
+	make_stage_area
+
+	if [ "$SKIP_CHECK" = "false" ]; then
+		check_npm_version
+		check_node_version
+		check_docker_version
+	else
+		echo "Skip npm, node and docker enabled..."	
+	fi
 
 
-if [ "$SKIP_CHECK" = "false" ]; then
-	check_npm_version
-	check_node_version
-	check_docker_version
-else
-	echo "Skip check requirements enabled..."	
-fi
+	# Enter build mode
+	while [[ ! "$MODE_BUILD" =~ (dev|prod) ]]; do
+		printf 'What type of build do you want? [dev/prod]: '
+		read MODE_BUILD
+		if [ -z "$MODE_BUILD" ]; then 
+			MODE_BUILD="dev"
+			break
+		fi
+	done
 
-if [ -z "$GIT_CHECKOUT_TAG" ]; then
-	echo "Frontend version: latest"
-else
-	echo "Frontend version: $GIT_CHECKOUT_TAG"
-fi
+	prepare_project_to_build
+fi	
 
-# Lê o modo de build
-while [[ ! $MODE_BUILD =~ (dev|prod) ]]; do
-	printf 'Build mode (dev|prod): '
-	read MODE_BUILD
-done
-
-
-prepare_project_to_build
-
-
-echo "npm version: $(npm --version)"
-echo "node version: $(node --version)"
-echo "Registry server: $REGISTRY"
-echo "Git base url projects: $GIT_BASE_URL_PROJECTS"
-echo "Git project: $APP_URL_GIT"
-echo "Git user: $GIT_USER"
-echo "Docker expose http port: $HTTP_PORT"
-echo "Docker expose https port: $HTTPS_PORT"
-echo "Working dir: $STAGE_AREA"
+if [ -s "$REGISTRY" ]; then
+	echo "Registry server: $REGISTRY"
+fi	
+echo "Git url: $APP_URL_GIT"
+if [ "$SKIP_BUILD" = "false" ]; then
+	echo "Docker expose http port: $HTTP_PORT"
+	echo "Docker expose https port: $HTTPS_PORT"
+	if [ "$BUILD_FROM_MASTER" = "true" ]; then
+		echo "Build app version: master"
+	else
+		if [ -z "$GIT_CHECKOUT_TAG" ]; then
+			echo "Build app version: latest"
+		else
+			echo "Build app version: $GIT_CHECKOUT_TAG"
+		fi
+	fi	
+	echo "Option keep stage enabled after build: $KEEP_STAGE"
+	echo "Option Skip build enabled: $SKIP_BUILD"
+	echo "Option cache_node_modules enabled: $CACHE_NODE_MODULES"
+	echo "npm version: $(npm --version)"
+	echo "node version: $(node --version)"
+fi	
 echo "Log file: $LOG_FILE" 
 echo "============================================================================================"
 
 
 
 if [ "$SKIP_BUILD" = "false" ]; then
+	build_app
 	build_image
-else
-	echo "Skip build image enabled..."
 fi
 
-if [ "$SKIP_PUSH" = "false" ]; then
-	push_registry
-else
-	echo "Skip push image enabled..."
+if [[ "$SKIP_PUSH" = "false" || "$SKIP_PUSH" = "" ]]; then
+	check_push_registry
 fi
 
 #check_send_email
@@ -718,7 +798,7 @@ cd $CURRENT_DIR
 
 if [ "$KEEP_STAGE" = "false" ]; then
 	rm -rf $STAGE_AREA
-else
-	echo "Keep stage enabled"
 fi
+
+echo "Finish!!!"
 

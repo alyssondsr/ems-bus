@@ -12,15 +12,16 @@
 -include("include/ems_schema.hrl").
 
 -export([compile_file/2, compile_file/3, render/2, load_module_template/1]).
-		 
+
+
 -spec compile_file(string(), atom()) -> {ok, atom()} | {error, atom()}.
 compile_file(Filename, ModuleName) -> erlydtl:compile_file(Filename, ModuleName, [{out_dir, "ebin"}]).
 
 
 -spec compile_file(string(), atom(), string()) -> {ok, atom()} | {error, atom()}.
-compile_file(Filename, ModuleName, OutputDir) -> erlydtl:compile_file(Filename, ModuleName, [{out_dir, OutputDir}]).
+compile_file(Filename, ModuleName, OutputDir) -> erlydtl:compile_file(Filename, ModuleName, [{out_dir, OutputDir}, {auto_escape, false}]).
 
-
+		 
 -spec render(atom(), list(tuple())) -> {ok, binary()} | {error, atom()}.
 render(ModuleName, Args) when is_tuple(Args) ->	
 	render(ModuleName, [Args]);

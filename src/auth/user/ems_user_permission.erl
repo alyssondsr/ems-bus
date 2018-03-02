@@ -77,6 +77,7 @@ new_from_map(Map, _Conf) ->
 		{ok, #user_permission{id = binary_to_integer(maps:get(<<"id">>, Map)),
 							  user_id = maps:get(<<"user_id">>, Map),
 							  client_id = maps:get(<<"client_id">>, Map),
+							  perfil_id = maps:get(<<"perfil_id">>, Map),
 							  url = ?UTF8_STRING(maps:get(<<"url">>, Map)),
 							  name = ?UTF8_STRING(maps:get(<<"name">>, Map)),
 							  grant_get = ems_util:parse_bool(maps:get(<<"grant_get">>, Map, true)),

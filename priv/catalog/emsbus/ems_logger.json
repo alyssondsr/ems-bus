@@ -2,7 +2,7 @@
 	{
 		"name": "ems_logger",
 		"comment": "Catalog for ems_logger",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger:start",
 		"url": "/emsbus/ems_logger",
@@ -18,7 +18,7 @@
 	{
 		"name": "/logger/filename",
 		"comment": "Get current filename logger",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:log_file_name",
 		"url": "/logger/filename",
@@ -30,8 +30,8 @@
 
 	{
 		"name": "/logger/head",
-		"comment": "Return first lines of logfile",
-		"owner": "ems_bus",
+		"comment": "Return first lines of current logfile",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:log_file_head",
 		"url": "/logger/head",
@@ -44,8 +44,8 @@
 
 	{
 		"name": "/logger/tail",
-		"comment": "Return last lines of logfile",
-		"owner": "ems_bus",
+		"comment": "Return last lines of current logfile",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:log_file_tail",
 		"url": "/logger/tail",
@@ -59,7 +59,7 @@
 	{
 		"name": "/logger/debug",
 		"comment": "Check debug mode",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:check_debug_mode",
 		"url": "/logger/debug",
@@ -71,7 +71,7 @@
 	{
 		"name": "/logger/debug/true",
 		"comment": "Set debug mode",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:set_debug_mode",
 		"url": "/logger/debug/true",
@@ -83,7 +83,7 @@
 	{
 		"name": "/logger/debug/false",
 		"comment": "Unset debug mode",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:unset_debug_mode",
 		"url": "/logger/debug/false",
@@ -95,7 +95,7 @@
 	{
 		"name": "/logger/sync",
 		"comment": "sync buffer of logger",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:sync",
 		"url": "/logger/sync",
@@ -107,7 +107,7 @@
 	{
 		"name": "/logger/level/info",
 		"comment": "Set debug mode",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:set_level_info",
 		"url": "/logger/level/info",
@@ -119,7 +119,7 @@
 	{
 		"name": "/logger/level/error",
 		"comment": "Unset debug mode",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:set_level_error",
 		"url": "/logger/level/error",
@@ -131,7 +131,7 @@
 	{
 		"name": "/logger/checkpoint",
 		"comment": "Manual checkpoint",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:checkpoint",
 		"url": "/logger/checkpoint",
@@ -143,7 +143,7 @@
 	{
 		"name": "/logger/response/true",
 		"comment": "Show response in log. Default is false.",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:show_response",
 		"url": "logger/response/true",
@@ -155,7 +155,7 @@
 	{
 		"name": "/logger/response/false",
 		"comment": "Hide response in log.",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:hide_response",
 		"url": "logger/response/false",
@@ -167,7 +167,7 @@
 	{
 		"name": "/logger/print/info",
 		"comment": "Print info in log",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:print_info_log",
 		"url": "/logger/print/info",
@@ -179,7 +179,7 @@
 	{
 		"name": "/logger/print/warn",
 		"comment": "Print warn in log",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:print_warn_log",
 		"url": "/logger/print/warn",
@@ -191,7 +191,7 @@
 	{
 		"name": "/logger/print/error",
 		"comment": "Print error in log",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:print_error_log",
 		"url": "/logger/print/error",
@@ -203,7 +203,7 @@
 	{
 		"name": "/logger/print/debug",
 		"comment": "Print debug in log",
-		"owner": "ems_bus",
+		"owner": "logger",
 		"version": "1.0.0",
 		"service" : "ems_logger_service:print_debug_log",
 		"url": "/logger/print/debug",
@@ -211,5 +211,4 @@
 		"authorization": "basic",
 		"lang" : "erlang"
 	}
-	
 ]

@@ -185,13 +185,8 @@
 		"comment": "Simulção de recurso",
 		"owner": "auth_user",
 		"version": "1.0.0",
-<<<<<<< HEAD:priv/catalog/emsbus/ems_oauth2.json
 		"service" : "oauth2mac_client:callback",
 		"url": "/callback1",
-=======
-		"service" : "ems_oauth2_client:callback",
-		"url": "/callback",
->>>>>>> upstream/master:priv/catalog/emsbus/auth/ems_oauth2.json
 		"type": "GET",
 		"querystring": [
 			{
@@ -209,24 +204,13 @@
 	},
 	
 	{
-<<<<<<< HEAD:priv/catalog/emsbus/ems_oauth2.json
 		"name" : "/callback",
 		"comment": "Simulção de recurso",
-		"owner": "oauth2ems",
+		"owner": "ems_oauth2",
 		"version": "1",
-		"service" : "oauth2ems_client:callback",
+		"service" : "ems_oauth2_client:callback",
 		"url": "/callback",
 		"type": "GET",
-=======
-		"name" : "/resource",
-		"comment": "Get resourge",
-		"owner": "auth_user",
-		"version": "1.0.0",
-		"service" : "ems_oauth2_recurso:execute",
-		"url": "/resource",
-		"type": "POST",
-		"authorization": "oauth2",
->>>>>>> upstream/master:priv/catalog/emsbus/auth/ems_oauth2.json
 		"querystring": [
 			{
 				"name": "code",
@@ -236,14 +220,13 @@
 		],
 		"lang" : "erlang"
 	},
-
+	
 	{
-<<<<<<< HEAD:priv/catalog/emsbus/ems_oauth2.json
 		"name" : "/authn",
 		"comment": "Autenticacao de dono do recurso",
-		"owner": "oauth2ems",
+		"owner": "ems_oauth2",
 		"version": "1",
-		"service" : "oauth2ems_authorize:authn_user",
+		"service" : "ems_oauth2_authorize:authn_user",
 		"url": "/authn",
 		"type": "GET",
 		"lang" : "erlang"
@@ -263,23 +246,6 @@
 		"cache_control" : "no-cache",
 		"expires_minute" : 0,
 		"lang" : "erlang"
-=======
-		"name" : "/recurso",
-		"comment": "Obter o recurso",
-		"owner": "auth_user",
-		"version": "1.0.0",
-		"service" : "ems_oauth2_recurso:execute",
-		"url": "/recurso",
-		"type": "POST",
-		"authorization": "oauth2",
-		"querystring": [
-			{
-				"name": "token",
-				"type": "string",
-				"comment": "Token de acesso"
-			}
-		],
-		"lang" : "erlang"
->>>>>>> upstream/master:priv/catalog/emsbus/auth/ems_oauth2.json
 	}
+
 ]

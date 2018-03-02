@@ -37,7 +37,6 @@ delete(Request) -> execute_command(delete, Request).
 %% Internal functions
 %%====================================================================
 
-
 execute_command(Command, Request = #request{service = #service{datasource = Datasource}}) ->
 	try
 		case ems_db:get_connection(Datasource) of

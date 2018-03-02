@@ -219,7 +219,7 @@ handle_info(check_sync_full, State = #state{name = Name,
 								{noreply, State, TimeoutOnError}
 						end;
 					false ->
-						erlang:send_after(30000, self(), check_sync_full), % aguarda 30 segundos e tente novamente
+						erlang:send_after(3000, self(), check_sync_full), % aguarda 3 segundos e tente novamente
 						{noreply, State, UpdateCheckpoint}
 				end;
 			_ -> 
@@ -246,7 +246,7 @@ handle_info(check_count_records, State = #state{name = Name,
 					{noreply, State, TimeoutOnError}
 			end;
 		false ->
-			{noreply, State, 6000}
+			{noreply, State, 3000}
 	end;
 
 handle_info({_Pid, {error, _Reason}}, State = #state{timeout_on_error = TimeoutOnError}) ->
@@ -265,7 +265,8 @@ code_change(_OldVsn, State, _Extra) ->
 handle_do_check_load_or_update_checkpoint(State = #state{name = Name,
 														 update_checkpoint = UpdateCheckpoint,
 														 timeout_on_error = TimeoutOnError,
-														 error_checkpoint_metric_name = ErrorCheckpointMetricName}) ->
+														 error_checkpoint_metric_name = ErrorCheckpointMetricName,
+														 last_update = LastUpdate}) ->
 	case do_permission_to_execute(check_load_or_update_checkpoint, Name, State) of
 		true ->
 			case do_check_load_or_update_checkpoint(State) of
@@ -279,7 +280,10 @@ handle_do_check_load_or_update_checkpoint(State = #state{name = Name,
 					{noreply, State, TimeoutOnError}
 			end;
 		false ->
-			{noreply, State, 1000}	
+			case LastUpdate == undefined orelse do_is_empty(State) of
+				true -> {noreply, State, 300};
+				false -> {noreply, State, 600}	
+			end
 	end.
 	
 
@@ -338,10 +342,10 @@ do_check_count_checkpoint(State = #state{name = Name,
 
 
 do_check_load_or_update_checkpoint(State = #state{name = Name,
-									   last_update_param_name = LastUpdateParamName,
-									   last_update = LastUpdate}) ->
+												  last_update_param_name = LastUpdateParamName,
+												  last_update = LastUpdate}) ->
 	% garante que os dados serão atualizados mesmo que as datas não estejam sincronizadas
-	NextUpdate = ems_util:date_dec_minute(calendar:local_time(), 6), 
+	NextUpdate = ems_util:date_dec_minute(calendar:local_time(), 10), 
 	LastUpdateStr = ems_util:timestamp_str(),
 	Conf = ems_config:getConfig(),
 	case LastUpdate == undefined orelse do_is_empty(State) of
@@ -403,7 +407,6 @@ do_load(CtrlInsert, Conf, State = #state{datasource = Datasource,
 						ems_odbc_pool:release_connection(Datasource2),
 						Error3
 				end,
-				erlang:garbage_collect(),
 				Result;
 			Error4 -> 
 				?DEBUG("~s has no connection to load data from database.", [Name]),
@@ -472,7 +475,6 @@ do_update(LastUpdate, CtrlUpdate, Conf, #state{datasource = Datasource,
 								ems_odbc_pool:release_connection(Datasource2),
 								Error
 						end,
-						erlang:garbage_collect(),
 						Result;
 					Error2 -> 
 						?DEBUG("~s has no connection to update data from database.", [Name]),

@@ -26,7 +26,7 @@
 -spec find_by_id(non_neg_integer()) -> {ok, #client{}} | {error, enoent}.
 find_by_id(Id) -> 
 	case ems_db:get([client_db, client_fs], Id) of
-		{ok, Record} -> {ok, Record};
+		{ok, Record} -> 	{ok, Record};
 		_ -> {error, enoent}
 	end.
 
@@ -44,8 +44,7 @@ find_by_id_and_secret(Id, Secret) ->
 	case find_by_id(Id) of
 		{ok, Client = #client{secret = CliSecret}} -> 
 			case CliSecret =:= Secret orelse CliSecret =:= ems_util:criptografia_sha1(Secret)  of
-				true -> 
-					{ok, Client};
+				true -> {ok, Client};
 				false -> {error, enoent}
 			end;
 		_ -> {error, enoent}

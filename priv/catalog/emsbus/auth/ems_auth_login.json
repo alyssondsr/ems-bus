@@ -1,22 +1,6 @@
 [
 	{
-		"name": "/login/assets",
-		"comment": "Bibliotecas node_modules do portal",
-		"owner": "auth",
-		"version": "1.0.0",
-		"service" : "ems_static_file_service:execute",
-		"url": "/login/assets/",
-		"use_re" : true,
-		"path" : "{{ login_path }}",
-		"type": "GET",
-		"authorization" : "public",
-		"cache_control" : "max-age=86400, public",
-		"expires_minute" : 1440,
-		"lang" : "erlang"
-	},
-
-	{
-		"name": "redirect_url_login",
+		"name": "auth_redirect_url_login",
 		"comment": "Redirect url /login to /login/index.html",
 		"owner": "auth",
 		"version": "1.0.0",
@@ -26,13 +10,13 @@
 		"path" : "{{ login_path }}",
 		"type": "GET",
 		"authorization" : "public",
-		"cache_control" : "no-cache",
+		"cache_control" : "max-age=31536000, private, no-cache, no-store, must-revalidate",
 		"expires_minute" : 0,
 		"lang" : "erlang"
 	},
 
 	{
-		"name": "/login_page",
+		"name": "/auth_login",
 		"comment": "Pagina de login ErlangMS",
 		"owner": "auth",
 		"version": "1.0.0",
@@ -42,8 +26,8 @@
 		"path" : "{{ login_path }}",
 		"type": "GET",
 		"authorization" : "public",
-		"cache_control" : "no-cache",
-		"expires_minute" : 0,
+		"cache_control" : "max-age=86400, private",
+		"expires_minute" : 1440,
 		"lang" : "erlang"
 	}
 ]

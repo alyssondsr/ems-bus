@@ -8,8 +8,8 @@
 
 -module(ems_user_perfil_loader_middleware).
 
--include("../include/ems_config.hrl").
--include("../include/ems_schema.hrl").
+-include("include/ems_config.hrl").
+-include("include/ems_schema.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 
@@ -82,8 +82,8 @@ insert_or_update(Map, CtrlDate, Conf, SourceType, _Operation) ->
 				Table = ems_user_perfil:get_table(SourceType),
 				case ems_user_perfil:find(Table, Id) of
 					{error, enoent} -> 
-						User = NewRecord#user_perfil{ctrl_insert = CtrlDate},
-						{ok, User, Table, insert};
+						UserPerfil = NewRecord#user_perfil{ctrl_insert = CtrlDate},
+						{ok, UserPerfil, Table, insert};
 					{ok, CurrentRecord = #user_perfil{ctrl_hash = CurrentCtrlHash}} ->
 						case CtrlHash =/= CurrentCtrlHash of
 							true ->

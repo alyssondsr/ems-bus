@@ -50,15 +50,7 @@
 %%%===================================================================
 
 start() ->
-    application:set_env(oauth2, backend, oauth2ems_backend),
-    ems_user:insert(#user{login= <<"geral">>,password= ems_util:criptografia_sha1("123456")}),
-    ems_user:insert(#user{login= <<"alyssondsr">>,password=ems_util:criptografia_sha1("123456")}),
-    ems_client:insert(#client{name= <<"123">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"http://127.0.0.1:2301/callback">>, scope= <<"email">>}),
-    ems_client:insert(#client{name= <<"q1w2e3">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.43:2344/callback">>, scope= <<"email">>}),
-    ems_client:insert(#client{name= <<"key">>,secret=ems_util:criptografia_sha1("secret"), redirect_uri= <<"https://127.0.0.1:2344/callback1">>, scope= <<"email">>}),
-    ems_client:insert(#client{name= <<"teste">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://164.41.120.34:2344/callback">>, scope= <<"email">>}),
-    ems_client:insert(#client{name= <<"98755">>,secret=ems_util:criptografia_sha1("123456"), redirect_uri= <<"https://www.getpostman.com/oauth2/callback">>, scope= <<"email">>}),
-
+    application:set_env(oauth2, backend, ems_oauth2_backend),
     lists:foreach(fun(Table) ->
 			ets:new(Table, [named_table, public])
 		end,
@@ -92,17 +84,19 @@ authenticate_user({Login, Password}, _) ->
 %			{ok, {<<>>, ResourceOwner}};
 %>>>>>>> upstream/master
 %=======
+	io:format("\n\n\n Password = ~p \n\n\n",[ems_util:criptografia_sha1(Password)]),
     case ems_user:find_by_login_and_password(Login, Password) of
 		{ok, User} -> 
-				io:format("\n\n\n Res = ~p \n\n\n",[ems_user:to_resource_owner(User)]),
 				{ok, {<<>>, {Login, <<"passwd">>}}};
 %>>>>>>> upstream/master
 		_ -> {error, unauthorized_user}
 	end.
 	
 authenticate_client({ClientId, Secret},_) ->
+	io:format("\n\n\n ++++++++++ authenticate_client *********************\n\n\n"),
     case ems_client:find_by_id_and_secret(ClientId, Secret) of
-		{ok, Client} ->	 {ok, {<<>>, Client}};
+		{ok, Client} ->	 io:format("\n\n\n ++++++++++ ok 33*********************\n\n\n"),
+						{ok, {<<>>, Client}};
 		_ -> {error, unauthorized_client}		
     end.
     
