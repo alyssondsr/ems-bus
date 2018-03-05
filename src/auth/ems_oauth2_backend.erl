@@ -84,7 +84,6 @@ authenticate_user({Login, Password}, _) ->
 %			{ok, {<<>>, ResourceOwner}};
 %>>>>>>> upstream/master
 %=======
-	io:format("\n\n\n Password = ~p \n\n\n",[ems_util:criptografia_sha1(Password)]),
     case ems_user:find_by_login_and_password(Login, Password) of
 		{ok, User} -> 
 				{ok, {<<>>, {Login, <<"passwd">>}}};
@@ -93,10 +92,8 @@ authenticate_user({Login, Password}, _) ->
 	end.
 	
 authenticate_client({ClientId, Secret},_) ->
-	io:format("\n\n\n ++++++++++ authenticate_client *********************\n\n\n"),
     case ems_client:find_by_id_and_secret(ClientId, Secret) of
-		{ok, Client} ->	 io:format("\n\n\n ++++++++++ ok 33*********************\n\n\n"),
-						{ok, {<<>>, Client}};
+		{ok, Client} ->	 {ok, {<<>>, Client}};
 		_ -> {error, unauthorized_client}		
     end.
     

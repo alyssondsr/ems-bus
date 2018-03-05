@@ -4,7 +4,7 @@
 		"name": "geral",
 		"description": "erlangms",
 		"secret": "CPD",
-		"redirect_uri" : "",
+		"redirect_uri" : "http://127.0.0.1:2301/callback",
 		"active": true,
 		"scope": ""
 	},

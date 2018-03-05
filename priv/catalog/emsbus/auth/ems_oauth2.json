@@ -208,8 +208,9 @@
 		"comment": "Simulção de recurso",
 		"owner": "ems_oauth2",
 		"version": "1",
-		"service" : "ems_oauth2_client:callback",
+		"service" : "oauth2ems_client:callback",
 		"url": "/callback",
+		"authorization" : "public",
 		"type": "GET",
 		"querystring": [
 			{

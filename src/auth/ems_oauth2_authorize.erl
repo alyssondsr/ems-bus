@@ -8,6 +8,7 @@
 -include("include/ems_config.hrl").
 -include("include/ems_schema.hrl").
 
+-define(BACKEND, (oauth2_config:backend())).
 
 
 execute(Request = #request{type = Type, 
@@ -22,8 +23,6 @@ execute(Request = #request{type = Type,
 			<<"POST">> -> GrantType = ems_util:get_querystring(<<"grant_type">>, <<>>, Request);
 			_ -> GrantType = undefined
 		end,
-	    io:format("\n\n\n GrantType = ~s \n\n\n",[GrantType]),
-
 		Result = case GrantType of
 		<<"password">> -> 
 			ems_db:inc_counter(ems_oauth2_grant_type_password),
@@ -34,8 +33,6 @@ execute(Request = #request{type = Type,
 					ems_db:inc_counter(ems_oauth2_grant_type_client_credentials),
 					client_credentials_grant(Request);
 			%	false ->
-			%					    io:format("\n\n\n OAuth2AllowClientCredentials = ~s \n\n\n",[OAuth2AllowClientCredentials]),
-
 			%		ems_db:inc_counter(ems_oauth2_client_credentials_denied),
 			%		{error, access_denied}	
 			%	end;
@@ -43,7 +40,7 @@ execute(Request = #request{type = Type,
 			ems_db:inc_counter(ems_oauth2_grant_type_token),
 			authorization_request(Request);
 		<<"code">> ->	
-			%ems_db:inc_counter(ems_oauth2_grant_type_code),
+			ems_db:inc_counter(ems_oauth2_grant_type_code),
 			authorization_request(Request);	
 		<<"authorization_code">> ->	
 			ems_db:inc_counter(ems_oauth2_grant_type_authorization_code),
@@ -78,7 +75,7 @@ code_request(Request = #request{authorization = Authorization}) ->
 		Password = ems_util:get_querystring(<<"password">>, <<>>, Request),
 	    case credential_extract({Username,Password},Authorization) of
 			{ok,{User,Passwd}} -> 
-		    Authz = oauth2:authorize_code_request({User,Passwd}, ClientId, RedirectUri, Scope, []),
+		    Authz = oauth2:authorize_code_request({User,Passwd}, parse_client_id(ClientId), RedirectUri, Scope, []),
 			case issue_code(Authz) of
 					{ok, Response} ->
 						Code = element(2,lists:nth(1,Response)),
@@ -147,8 +144,6 @@ client_credentials_grant(Request = #request{authorization = Authorization}) ->
 		% O ClientId também pode ser passado via header Authorization
 		case credential_extract({ClientId,Secret},Authorization) of
 			{ok,{Id,ClientSecret}} -> 
-			    %io:format("\n\n\n ClientId = ~s \n\n\n",[Id]),
-			    %io:format("parse_client_id = ~4..0B~n \n",[parse_client_id(Id)]),
 				Auth = oauth2:authorize_client_credentials({parse_client_id(Id),ClientSecret}, Scope, []),
 				issue_token(Auth);
 			_Error -> {error, invalid_client_credentials}
@@ -177,16 +172,15 @@ password_grant(Request = #request{authorization = Authorization}) ->
 %% Verifica a URI do Cliente e redireciona para a página de autorização - Implicit Grant e Authorization Code Grant
 %% URL de teste: GET http://127.0.0.1:2301/authorize?response_type=code&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html   
 authorization_request(Request = #request{authorization = _Authorization}) ->
-	ClientId = ems_util:get_querystring(<<"client_id">>, <<>>,Request),
+	Id = ems_util:get_querystring(<<"client_id">>, <<>>,Request),
     RedirectUri = ems_util:get_querystring(<<"redirect_uri">>, <<>>, Request),
     State = ems_util:get_querystring(<<"state">>, <<>>, Request),
     Scope = ems_util:get_querystring(<<"scope">>, <<>>, Request),
-    Resposta = case oauth2ems_backend:verify_redirection_uri(ClientId, RedirectUri, []) of
+    Resposta = case ?BACKEND:verify_redirection_uri(parse_client_id(Id), RedirectUri, []) of
 		{ok,_} ->
-			Data = <<"/login/index.html?response_type=code&client_id=", ClientId/binary,"&redirect_uri=", RedirectUri/binary,"&state=",State/binary,"&scope=",Scope/binary>>,
-		    io:format("\n\n\n Data = ~s \n\n\n",[Data]),
+			Data = <<"/login/index.html?response_type=code&client_id=", Id/binary,"&redirect_uri=", RedirectUri/binary,"&state=",State/binary,"&scope=",Scope/binary>>,
 			{redirect, Data};
-		Error -> 	Error
+		Error -> Error
 	end,
     Resposta.
 
@@ -197,7 +191,7 @@ refresh_token_request(Request) ->
     ClientSecret = ems_util:get_querystring(<<"client_secret">>, [],Request),
 	Reflesh_token = ems_util:get_querystring(<<"refresh_token">>, [],Request),
 	Scope    = ems_util:get_querystring(<<"scope">>, [],Request),
-	Authorization = oauth2ems_backend:authorize_refresh_token({ClientId, ClientSecret},Reflesh_token,Scope),
+	Authorization = ?BACKEND:authorize_refresh_token({ClientId, ClientSecret},Reflesh_token,Scope),
     issue_token(Authorization).  
 
 %% Requisita o token de acesso com o código de autorização - seções  4.1.3. e  4.1.4 do RFC 6749.
@@ -208,8 +202,8 @@ access_token_request(Request = #request{authorization = Authorization},GrantType
     RedirectUri = ems_util:get_querystring(<<"redirect_uri">>, [],Request),
     ClientSecret = ems_util:get_querystring(<<"client_secret">>, [],Request),
     case credential_extract({ClientId,ClientSecret},Authorization) of
-		{ok,{ClientId2,Secret}} -> 
-			Auth = oauth2:authorize_code_grant({ClientId2, Secret}, Code, RedirectUri, []),
+		{ok,{Id,Secret}} -> 
+			Auth = oauth2:authorize_code_grant({parse_client_id(Id), Secret}, Code, RedirectUri, []),
 			case GrantType of
 				<<"mac">> -> issue_mac_token(Auth);
 				<<"authorization_code">> -> issue_token_and_refresh(Auth)
@@ -236,7 +230,6 @@ end.
 
 
 %issue_token({ok, {_, Auth}}) ->
-	%io:format("\n\n\n ++++++++++ issue_token *********************\n\n\n"),
 	%{ok, {_, Response}} = oauth2:issue_token(Auth, []),
 	%{ok, oauth2_response:to_proplist(Response)};
 %issue_token(Error) ->

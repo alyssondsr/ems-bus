@@ -11,8 +11,8 @@
 %-define(SCOPE, <<>>).
 
 -define(REDIRECT_URI, <<"http://127.0.0.1:2301/callback">>).
--define(CLIENTID, <<"123">>).
--define(SECRET, <<"123456">>).
+-define(CLIENTID, <<"1">>).
+-define(SECRET, <<"CPD">>).
 -define(ACCESS_TOKEN_URL, "http://127.0.0.1:2301/authorize").
 -define(SERVICO, <<"http://127.0.0.1:2301/netadm/info">>).
 -define(SCOPE, <<"email">>).
@@ -33,7 +33,8 @@
 
 
 callback(Request) -> 
-	Code = ems_request:get_querystring(<<"code">>, <<>>, Request),
+	Code = ems_util:get_querystring(<<"code">>, <<>>, Request),
+	io:format("\n\n\n Code = ~s \n\n\n",[Code]),
 	case Code == <<>> of
 		true ->	bad(Request, <<"{error: access_denied}">>);
 		false -> 

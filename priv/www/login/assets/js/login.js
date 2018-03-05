@@ -1,7 +1,4 @@
 var Login = Login || {};
-var user =  "";
-User = "2";
-Pass = "1";
 
 Login.LoginSistemas = (function() {
 	
@@ -150,25 +147,19 @@ Login.LoginSistemas = (function() {
 	function LoginSistemas() {
 		this.form = $('#sign_in');
 		this.botaoLogin = $('#enter');
-		this.botaoAuth = $('#enter1');
-		this.botaoNega = $('#neg');
 		this.username = $('#username');
 		this.pass = $('#pass');
 		this.error = $("#error");
 	}
 	
 	LoginSistemas.prototype.iniciar = function() {
-		this.botaoAuth.on('click', onAuthz.bind(this));
-		this.botaoNega.on('click', onNega.bind(this));
 		this.botaoLogin.on('click', onSubmitLogin.bind(this));
 		this.form.on('submit', onSubmitLogin.bind(this));
 		this.username.on('focus', onRemoveDiv.bind(this));
 		this.pass.on('focus', onRemoveDiv.bind(this));
 	}
-
+	
 	function onSubmitLogin(e) {
-		User = $('#username').val();
-		Pass = sha1($('#pass').val());
 		if($('#username').val() == "" || $('#pass').val() == ""){
 			onRemoveDiv();
 			this.error.append('<div id="validate" class="alert alert-danger" role="alert">O login e a senha devem ser preenchidos.</div>');
@@ -176,23 +167,26 @@ Login.LoginSistemas = (function() {
 		}
 
 		e.preventDefault();
+
 		var urlBase = '';
-		var protocol = window.location.protocol;
-		var baseUrl = protocol + '//' + window.location.hostname +':' + window.location.port; 
-<<<<<<< HEAD
 		
-		var url = baseUrl + '/authn?'+
+		var protocol=window.location.protocol;
+		
+		/*var port = ":";
+		
+		if(document.referrer!= undefined && document.referrer != ""){
+			
+			var hostName =document.referrer.split('/')[2];
+			
+			port += hostName.split(':')[1];
+		}*/
+		
+		var baseUrl = protocol + '//' + window.location.hostname +':' + window.location.port; 
+		
+		var url = baseUrl + '/code_request?'+
 				 'client_id='+getRedirectUri()['client_id']+
 				 '&state='+getRedirectUri()['state']+
 				 '&redirect_uri='+getRedirectUri()['redirect_uri'];
-
-=======
-		var querystring = getQuerystring();
-		var url = baseUrl + '/code_request?'+
-				 'client_id=' + querystring['client_id']+
-				 '&state=' + querystring['state']+
-				 '&redirect_uri=' + querystring['redirect_uri'];
->>>>>>> upstream/master
 		$.ajax({
 			url: url,
 			crossDomain: true,
@@ -200,76 +194,35 @@ Login.LoginSistemas = (function() {
 			beforeSend: function (xhr) {
 				xhr.setRequestHeader ("Authorization", "Basic " + btoa($('#username').val() + ":" + sha1($('#pass').val())));
 			},
-<<<<<<< HEAD
+
 			headers: {
 				  'name-api-key':'ewf45r4435trge',
 				  'Content-Type':'application/x-www-form-urlencoded'
 		    },			
 			error:  onErroSalvandoEstilo.bind(this),
-=======
-			error: onErroSalvandoEstilo.bind(this),
->>>>>>> upstream/master
 			success: function(data, textStatus, headers){
 				if (data.redirect) {
+					//alert("data.redirect: "+ data.redirect);
+					// data.redirect contains the string URL to redirect to
 					window.location.href = data.redirect;
 				}
 			},
 			complete: function(data, textStatus) {
 				if(textStatus == 'success'){
-<<<<<<< HEAD
 					if (document.referrer != undefined && document.referrer != ""){
 						urlBase=document.referrer;
 						urlBase=urlBase.split('/');
 						url=urlBase[0]+'//'+urlBase[2]+''+data.getResponseHeader("Location");
-												alert("url1: "+ url);
-
 					}else{
-						url = baseUrl + '/login/authz.html?'+
-							'client_id='+getRedirectUri()['client_id']+
-							'&scope='+getRedirectUri()['scope']+
-							'&state='+getRedirectUri()['state']+
-							'&redirect_uri='+getRedirectUri()['redirect_uri'];	
-
+						url=data.getResponseHeader("Location");
 					}
-					//alert(Pass);
-					setCookie("oauth2ems", User, 30)
+					//alert(url);
 					window.location.href=url;
-=======
-					var referrer = document.referrer;
-					if (referrer != undefined && referrer != ""){
-						baseUrlReferrer = referrer.split('/');
-						url = baseUrlReferrer[0] + '//' + baseUrlReferrer[2] + data.getResponseHeader("Location");
-					}else{
-						if (baseUrl.startsWith("/")){
-							url = baseUrl + data.getResponseHeader("Location");
-						}else{
-							url = data.getResponseHeader("Location")
-						}
-					}
-					window.location.href = url;
->>>>>>> upstream/master
 				}
 			}
 		});
 	}
-	function onNega(e) {
-		alert("all");
-		window.location.href='http://127.0.0.1:2301/code_request';
-	}
 	
-	function onAuthz(e) {
-		var baseUrl = 'http://127.0.0.1:2301/code_request?username=geral&password=123456';
-		var ca = getCookie("oauth2ems");
-		alert(ca);
-		url = 	baseUrl +
-				'&client_id='+getRedirectUri()['client_id']+
-				'&state='+getRedirectUri()['state']+
-				'&redirect_uri='+getRedirectUri()['redirect_uri'];
-		alert(url);
-		//authz = data.getResponseHeader("Authorization");
-		window.location.href=url;
-	}
-
 	//erro na autenticação
 	function onErroSalvandoEstilo(obj) {
 		onRemoveDiv();
@@ -282,36 +235,12 @@ Login.LoginSistemas = (function() {
 	}
 	
 	function onRemoveDiv() {
-		var divElement = $("#validate");
+		 var divElement = $("#validate");
+		
 		if(divElement != undefined){
 			divElement.remove("#validate");		
 		}
 	}
-	
-<<<<<<< HEAD
-	function getCookie(cname) {
-		var name = cname + "=";
-		var ca = document.cookie.split(';');
-		for(var i = 0; i < ca.length; i++) {
-			var c = ca[i];
-			while (c.charAt(0) == ' ') {
-				c = c.substring(1);
-			}
-			if (c.indexOf(name) == 0) {
-				return c.substring(name.length, c.length);
-			}
-		}
-		return "";
-	}
-	
-	function setCookie(cname, cvalue, exdays) {
-		var d = new Date();
-		d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
-		var expires = "expires="+d.toUTCString();
-		document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
-	}	
-
-
 	
 	function getRedirectUri(){
 		var vars = [], hash;
@@ -321,21 +250,6 @@ Login.LoginSistemas = (function() {
 			hash = hashes[i].split('=');
 			vars.push(hash[0]);
 			vars[hash[0]] = hash[1];
-=======
-	function getQuerystring(){
-		var vars = [], param;
-		var href = window.location.href;
-		var posQuerystring = href.indexOf('?');
-		if (posQuerystring > 0){
-			var hashes = href.slice(posQuerystring + 1).split('&');
-			for(var i = 0; i < hashes.length; i++)
-			{
-				param = hashes[i].split('=');
-				paramName = param[0];
-				vars.push(paramName);
-				vars[paramName] = param[1];
-			}
->>>>>>> upstream/master
 		}
 		return vars;
 	}
