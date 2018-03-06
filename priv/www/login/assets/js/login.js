@@ -202,8 +202,6 @@ Login.LoginSistemas = (function() {
 			error:  onErroSalvandoEstilo.bind(this),
 			success: function(data, textStatus, headers){
 				if (data.redirect) {
-					//alert("data.redirect: "+ data.redirect);
-					// data.redirect contains the string URL to redirect to
 					window.location.href = data.redirect;
 				}
 			},
@@ -216,7 +214,6 @@ Login.LoginSistemas = (function() {
 					}else{
 						url=data.getResponseHeader("Location");
 					}
-					//alert(url);
 					window.location.href=url;
 				}
 			}

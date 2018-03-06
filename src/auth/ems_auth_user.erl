@@ -69,7 +69,6 @@ do_basic_authorization(Service, Request = #request{authorization = Authorization
 -spec do_bearer_authorization(#service{}, #request{}) -> {ok, #client{} | public, #user{} | public, binary(), binary()} | {error, access_denied}.
 do_bearer_authorization(Service, Request = #request{authorization = <<>>}) ->
 	AccessToken = ems_util:get_querystring(<<"token">>, <<"access_token">>, <<>>, Request),
-	io:format("\n\n\n AccessToken = ~s \n\n\n",[AccessToken]),
 	do_oauth2_check_access_token(AccessToken, Service, Request);
 do_bearer_authorization(Service, Request = #request{authorization = Authorization}) ->	
 	case ems_util:parse_bearer_authorization_header(Authorization) of

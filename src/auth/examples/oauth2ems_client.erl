@@ -34,7 +34,6 @@
 
 callback(Request) -> 
 	Code = ems_util:get_querystring(<<"code">>, <<>>, Request),
-	io:format("\n\n\n Code = ~s \n\n\n",[Code]),
 	case Code == <<>> of
 		true ->	bad(Request, <<"{error: access_denied}">>);
 		false -> 
@@ -58,7 +57,6 @@ acessa_servico(Token) ->
 	URL = binary:bin_to_list(URLbin),		
 	{ok, {{_Version, _Status, _ReasonPhrase}, _Headers, Net}} = 
 		httpc:request(get,{URL, []}, [], []),
-		io:format("\n\n\n Net ~p \n\n\n",[Net]),
 	Net.	
 
 request(Authorization,Data)->
