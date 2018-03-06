@@ -353,7 +353,8 @@ new_from_map(Map, Conf = #config{cat_enable_services = EnableServices,
 								 ssl_certfile = SslCertFileDefault,
 								 ssl_keyfile = SslKeyFileDefault,
 								 http_max_content_length = HttpMaxContentLengthDefault,
-								 http_headers = HttpHeadersDefault}) ->
+								 http_headers = HttpHeadersDefault,
+								 rest_default_querystring = RestDefaultQuerystring}) ->
 	try
 		Name = ems_util:parse_name_service(maps:get(<<"name">>, Map)),
 		Owner = maps:get(<<"owner">>, Map, <<>>),
@@ -470,7 +471,7 @@ new_from_map(Map, Conf = #config{cat_enable_services = EnableServices,
 				Node = parse_node_service(maps:get(<<"node">>, Map, CatNodeSearchDefault)),
 				{Mapost, MapostName} = parse_host_service(maps:get(<<"host">>, Map, CatHostSearchDefault), ModuleName, Node, Conf)
 		end,
-		{Querystring, QtdQuerystringRequired} = ems_util:parse_querystring_def(maps:get(<<"querystring">>, Map, [])),
+		{Querystring, QtdQuerystringRequired} = ems_util:parse_querystring_def(maps:get(<<"querystring">>, Map, []), RestDefaultQuerystring),
 		Page = maps:get(<<"page">>, Map, undefined),
 		PageModule = compile_page_module(Page, Rowid, Conf),
 		CtrlModified = maps:get(<<"ctrl_modified">>, Map, undefined),

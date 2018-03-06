@@ -228,6 +228,7 @@ parse_config(Json, NomeArqConfig) ->
 	HttpHeadersOptions0 = maps:merge(?HTTP_HEADERS_DEFAULT, maps:get(<<"http_headers_options">>, Json, #{})),
 	HttpHeaders = parse_http_headers(HttpHeaders0, ShowDebugResponseHeaders),
 	HttpHeadersOptions = parse_http_headers(HttpHeadersOptions0, ShowDebugResponseHeaders),
+	{Querystring, _QtdQuerystringRequired} = ems_util:parse_querystring_def(maps:get(<<"rest_default_querystring">>, Json, []), []),
 	#config{ cat_host_alias = maps:get(<<"host_alias">>, Json, #{<<"local">> => Hostname2}),
 			 cat_host_search = maps:get(<<"host_search">>, Json, <<>>),							
 			 cat_node_search = maps:get(<<"node_search">>, Json, <<>>),
@@ -274,7 +275,8 @@ parse_config(Json, NomeArqConfig) ->
 	 		 log_show_response = ems_util:parse_bool(maps:get(<<"log_show_response">>, Json, false)),
 			 log_show_payload = ems_util:parse_bool(maps:get(<<"log_show_payload">>, Json, false)),
 	 		 log_show_response_max_length = ems_util:parse_bool(maps:get(<<"log_show_response_max_length">>, Json, ?LOG_SHOW_RESPONSE_MAX_LENGTH)),
-			 log_show_payload_max_length = ems_util:parse_bool(maps:get(<<"log_show_payload_max_length">>, Json, ?LOG_SHOW_PAYLOAD_MAX_LENGTH))
+			 log_show_payload_max_length = ems_util:parse_bool(maps:get(<<"log_show_payload_max_length">>, Json, ?LOG_SHOW_PAYLOAD_MAX_LENGTH)),
+			 rest_default_querystring = Querystring
 		}.
 
 % It generates a default configuration if there is no configuration file
@@ -327,11 +329,12 @@ get_default_config() ->
 			 ssl_cacertfile = undefined,
 			 ssl_certfile = undefined,
 			 ssl_keyfile = undefined,
-			 sufixo_email_institucional = "@unb.br",
+			 sufixo_email_institucional = ?SUFIXO_EMAIL_INSTITUCIONAL, 
 	 		 log_show_response = false,
 			 log_show_payload = false,
 	 		 log_show_response_max_length = ?LOG_SHOW_RESPONSE_MAX_LENGTH,
-			 log_show_payload_max_length = ?LOG_SHOW_PAYLOAD_MAX_LENGTH
+			 log_show_payload_max_length = ?LOG_SHOW_PAYLOAD_MAX_LENGTH,
+			 rest_default_querystring = []
 		}.
 
 -spec select_config_file(binary() | string(), binary() | string()) -> {ok, string()} | {error, enofile_config}.

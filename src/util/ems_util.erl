@@ -97,7 +97,7 @@
 		 parse_type_service/1,
 		 parse_type_querystring/1,
 		 parse_service_service/1,
-		 parse_querystring_def/1,
+		 parse_querystring_def/2,
 		 parse_file_name_path/3,
  		 parse_bool/1,
 		 parse_authorization_type/1,
@@ -2174,15 +2174,32 @@ parse_name_querystring(Name) ->
 	
 	
 %% @doc Retorna uma mapa das querystrings e a quantidade de queries obrigatórias
--spec parse_querystring_def(list()) -> {list(map()), non_neg_integer()}.	
-parse_querystring_def([]) -> {[], 0};
-parse_querystring_def(Querystring) -> parse_querystring_def(Querystring, [], 0).
+-spec parse_querystring_def(list(), list()) -> {list(map()), non_neg_integer()}.	
+parse_querystring_def(Querystring, RestDefaultQuerystring) -> parse_querystring_def(Querystring, [], 0, RestDefaultQuerystring).
+
 	
 %% @doc Retorna uma mapa das querystrings e a quantidade de queries obrigatórias
--spec parse_querystring_def(list(), list(), non_neg_integer()) -> {list(map()), non_neg_integer()}.	
-parse_querystring_def([], Querystring, QtdRequired) -> 	
+-spec parse_querystring_def(list(), list(), non_neg_integer(), list()) -> {list(map()), non_neg_integer()}.	
+parse_querystring_def([], Querystring, QtdRequired, []) -> 	
 	{Querystring, QtdRequired};
-parse_querystring_def([H|T], Querystring, QtdRequired) -> 
+parse_querystring_def([], Querystring, QtdRequired, RestDefaultQuerystring) -> 	
+	% Seleciona as queries default que não estão na lista Querystring
+	RestDefaultQuerystring2 = lists:filtermap(fun(X) -> 
+													Name = maps:get(<<"name">>, X),
+													case lists:filtermap(fun(K) -> 
+																				case maps:find(Name, K) of 
+																					{ok, Name} -> true; 
+																					_ -> false 
+																				end
+																		 end, Querystring) 
+													of
+															[] -> true;
+															_ -> false
+													end
+											   end,  RestDefaultQuerystring),
+ 	Querystring2 = Querystring ++ RestDefaultQuerystring2, 
+	{Querystring2, QtdRequired};
+parse_querystring_def([H|T], Querystring, QtdRequired, RestDefaultQuerystring) -> 
 	Name = parse_name_querystring(maps:get(<<"name">>, H)),
 	Type = parse_type_querystring(maps:get(<<"type">>, H, <<"string">>)),
 	Default = maps:get(<<"default">>, H, <<>>),
@@ -2197,7 +2214,29 @@ parse_querystring_def([H|T], Querystring, QtdRequired) ->
 		  <<"default">>  => Default,
 		  <<"comment">>  => Comment,
 		  <<"required">> => Required},
-	parse_querystring_def(T, [Q | Querystring], QtdRequired2).
+	% Não pode haver querystring duplicadas
+	case lists:filtermap(fun(X) -> 
+							case maps:find(<<"name">>, X) of 
+								{ok, Name} -> true; 
+								_ -> false 
+							end
+						 end,  Querystring) of
+		[] ->
+			% Localiza a query na lista de queryes default. Se existir faz o merge
+			case lists:filtermap(fun(X) -> 
+									case maps:find(<<"name">>, X) of 
+										{ok, Name} -> true; 
+										_ -> false 
+									end
+								 end,  RestDefaultQuerystring) of
+				[] -> Q2 = Q;
+				[DefaultQuery] -> Q2 = maps:merge(DefaultQuery, Q)
+			end,
+			parse_querystring_def(T, [Q2 | Querystring], QtdRequired2, RestDefaultQuerystring);
+		M ->  
+			erlang:error(eduplicated_querystring_def)
+	end.
+	
 
 	
 -spec parse_tcp_listen_address(list(string()) | list(binary()) |  list(tuple()) | string() | binary() | undefined | null) -> list(tuple()). 

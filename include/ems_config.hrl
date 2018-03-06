@@ -210,6 +210,7 @@
 -define(TCP_PORT_MIN, 1024).
 -define(TCP_PORT_MAX, 99999).
 
+-define(SUFIXO_EMAIL_INSTITUCIONAL, "@unb.br").
 
 
 %  Definição para o arquivo de configuração
@@ -263,7 +264,8 @@
 				 log_show_response = false :: boolean(),	%% Se true, imprime o response no log
 				 log_show_payload = false :: boolean(),		%% Se true, imprime o payload no log
 				 log_show_response_max_length :: boolean(),	%% show response if content length < show_response_max_length
-				 log_show_payload_max_length :: boolean()	%% show payload if content length < show_response_max_length
+				 log_show_payload_max_length :: boolean(),	%% show payload if content length < show_response_max_length
+				 rest_default_querystring :: map()			%% querystring default
 		 }). 	
 
 
