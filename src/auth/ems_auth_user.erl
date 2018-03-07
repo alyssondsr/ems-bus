@@ -112,14 +112,14 @@ do_oauth2_check_access_token(AccessToken, Service, Req) ->
 	
 
 -spec do_check_grant_permission(#service{}, #request{}, #client{} | public, #user{}, binary(), binary(), atom()) -> {ok, #client{}, #user{}, binary(), binary()} | {error, access_denied}.
-do_check_grant_permission(Service = #service{restricted = Restricted}, 
+do_check_grant_permission(Service, 
 						  Req, 
 						  Client, 
-						  User = #user{admin = Admin}, 
+						  User, 
 						  AccessToken, 
 						  Scope, 
 						  AuthorizationMode) ->
-	case (not Restricted orelse Admin) andalso ems_user_permission:has_grant_permission(Service, Req, User) of
+	case ems_user_permission:has_grant_permission(Service, Req, User) of
 		true -> 
 			case AuthorizationMode of
 				basic -> ems_db:inc_counter(ems_auth_user_basic_success);

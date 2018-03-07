@@ -80,10 +80,10 @@ code_request(Request = #request{authorization = Authorization}) ->
 					{ok, Response} ->
 						Code = element(2,lists:nth(1,Response)),
 						LocationPath = <<RedirectUri/binary,"?code=", Code/binary,"&state=",State/binary>>,
-						redirect(Request, LocationPath);
+						redirect200(Request, LocationPath);
 					_ ->
 						LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-						redirect(Request, LocationPath)
+						redirect200(Request, LocationPath)
 					end;
 			Error -> bad(401,Request, Error)
 		end
@@ -171,7 +171,7 @@ password_grant(Request = #request{authorization = Authorization}) ->
 	
 %% Verifica a URI do Cliente e redireciona para a página de autorização - Implicit Grant e Authorization Code Grant
 %% URL de teste: GET http://127.0.0.1:2301/authorize?response_type=code&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html   
-authorization_request(Request = #request{authorization = _Authorization}) ->
+authorization_request(Request) ->
 	Id = ems_util:get_querystring(<<"client_id">>, <<>>,Request),
     RedirectUri = ems_util:get_querystring(<<"redirect_uri">>, <<>>, Request),
     State = ems_util:get_querystring(<<"state">>, <<>>, Request),
@@ -186,13 +186,17 @@ authorization_request(Request = #request{authorization = _Authorization}) ->
 
 %% Requisita o código de autorização - seções 4.1.1 e 4.1.2 do RFC 6749.
 %% URL de teste: GET http://127.0.0.1:2301/authorize?response_type=code2&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html&username=johndoe&password=A3ddj3w
-refresh_token_request(Request) ->
+refresh_token_request(Request = #request{authorization = Authorization}) ->
     ClientId    = ems_util:get_querystring(<<"client_id">>, [],Request),
     ClientSecret = ems_util:get_querystring(<<"client_secret">>, [],Request),
 	Reflesh_token = ems_util:get_querystring(<<"refresh_token">>, [],Request),
 	Scope    = ems_util:get_querystring(<<"scope">>, [],Request),
-	Authorization = ?BACKEND:authorize_refresh_token({ClientId, ClientSecret},Reflesh_token,Scope),
-    issue_token(Authorization).  
+	case credential_extract({ClientId,ClientSecret},Authorization) of
+			{ok,{Id,Secret}} ->	
+				Authz = ?BACKEND:authorize_refresh_token({parse_client_id(Id), Secret},Reflesh_token,Scope),
+				issue_token(Authz);
+			_Error -> {error, invalid_client}
+    end.  
 
 %% Requisita o token de acesso com o código de autorização - seções  4.1.3. e  4.1.4 do RFC 6749.
 %% URL de teste: POST http://127.0.0.1:2301/authorize?grant_type=authorization_code&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html&username=johndoe&password=A3ddj3w&secret=qwer&code=dxUlCWj2JYxnGp59nthGfXFFtn3hJTqx
@@ -316,6 +320,15 @@ bad(Code, Request, {_,Reason}) ->
 	}.
 redirect(Request, LocationPath) ->
 	{ok, Request#request{code = 302, 
+		 response_data = <<"{}">>,
+		 response_header = #{
+					<<"location">> => LocationPath
+					}
+		}
+	}.
+
+redirect200(Request, LocationPath) ->
+	{ok, Request#request{code = 200, 
 		 response_data = <<"{}">>,
 		 response_header = #{
 					<<"location">> => LocationPath

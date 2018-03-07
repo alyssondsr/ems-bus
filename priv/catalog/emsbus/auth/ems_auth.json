@@ -44,7 +44,11 @@
 		"catalog": "/emsbus/auth/auth_oauth2", 
 		"file": "ems_oauth2.json"
 	},
-
+	{
+		"catalog": "/emsbus/auth/auth_oauth1", 
+		"file": "ems_oauth1.json"
+	},
+	
 	{
 		"catalog": "/emsbus/auth/ems_auth_login", 
 		"file": "ems_auth_login.json"

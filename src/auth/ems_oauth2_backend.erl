@@ -85,7 +85,7 @@ authenticate_user({Login, Password}, _) ->
 %>>>>>>> upstream/master
 %=======
     case ems_user:find_by_login_and_password(Login, Password) of
-		{ok, User} -> 
+		{ok, _User} -> 
 				{ok, {<<>>, {Login, <<"passwd">>}}};
 %>>>>>>> upstream/master
 		_ -> {error, unauthorized_user}
@@ -93,8 +93,8 @@ authenticate_user({Login, Password}, _) ->
 	
 authenticate_client({ClientId, Secret},_) ->
     case ems_client:find_by_id_and_secret(ClientId, Secret) of
-		{ok, Client} ->	 {ok, {<<>>, Client}};
-		_ -> {error, unauthorized_client}		
+		{ok, Client} ->	{ok, {<<>>, Client}};
+		_ ->			{error, unauthorized_client}		
     end.
     
 get_client_identity(ClientId, _) ->
@@ -121,8 +121,8 @@ resolve_access_code(AccessCode, _) ->
 
 resolve_refresh_token(RefreshToken, _AppContext) ->
     case get(?REFRESH_TOKEN_TABLE, RefreshToken) of
-       {ok,Value} -> {ok,{[], Value}};
-        _Error -> {error, invalid_token} 
+       {ok,Value} ->  {ok,{[], Value}};
+        _Error -> 	{error, invalid_token} 
     end.
 
 resolve_access_token(AccessToken, _) ->
@@ -164,12 +164,6 @@ verify_redirection_uri(ClientId, ClientUri, _) ->
 				_ -> {error, unauthorized_client}
 			end;
         Error -> Error
-    end;
-
-verify_redirection_uri(#client{redirect_uri = RedirUri}, ClientUri, _) ->
-    case ClientUri =:= RedirUri of
-		true -> {ok,[]};
-		_Error -> {error, error_uri}
     end.
 
 verify_client_scope(#client{id = ClientID}, Scope, _) ->

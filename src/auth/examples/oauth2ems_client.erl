@@ -54,9 +54,11 @@ end.
 
 acessa_servico(Token) ->
 	URLbin =  <<?SERVICO/binary, "?access_token=", Token/binary>>,
-	URL = binary:bin_to_list(URLbin),		
+	URL = binary:bin_to_list(URLbin),
+	Authzbin = <<"Bearer ",Token/binary>>,
+	Authz = binary:bin_to_list(Authzbin),
 	{ok, {{_Version, _Status, _ReasonPhrase}, _Headers, Net}} = 
-		httpc:request(get,{URL, []}, [], []),
+		httpc:request(post,{URL, [{"Authorization",Authz}], "application/x-www-form-urlencoded",[]}, [], []),
 	Net.	
 
 request(Authorization,Data)->

@@ -189,6 +189,7 @@ Login.LoginSistemas = (function() {
 				 '&redirect_uri='+getRedirectUri()['redirect_uri'];
 		$.ajax({
 			url: url,
+			alert("teste"),
 			crossDomain: true,
 			contentType: 'application/json',
 			beforeSend: function (xhr) {
@@ -202,6 +203,8 @@ Login.LoginSistemas = (function() {
 			error:  onErroSalvandoEstilo.bind(this),
 			success: function(data, textStatus, headers){
 				if (data.redirect) {
+					url=data.getResponseHeader("Location");
+					alert(url);
 					window.location.href = data.redirect;
 				}
 			},
@@ -211,9 +214,12 @@ Login.LoginSistemas = (function() {
 						urlBase=document.referrer;
 						urlBase=urlBase.split('/');
 						url=urlBase[0]+'//'+urlBase[2]+''+data.getResponseHeader("Location");
+						alert(url);
 					}else{
 						url=data.getResponseHeader("Location");
+						alert(url);
 					}
+					alert(url);
 					window.location.href=url;
 				}
 			}
