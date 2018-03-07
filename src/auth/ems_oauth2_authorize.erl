@@ -38,10 +38,10 @@ execute(Request = #request{type = Type,
 			%	end;
 		<<"token">> -> 
 			ems_db:inc_counter(ems_oauth2_grant_type_token),
-			authorization_request(Request);
+			authorization_request(<<"token">>,Request);
 		<<"code">> ->	
 			ems_db:inc_counter(ems_oauth2_grant_type_code),
-			authorization_request(Request);	
+			authorization_request(<<"code">>,Request);	
 		<<"authorization_code">> ->	
 			ems_db:inc_counter(ems_oauth2_grant_type_authorization_code),
 			access_token_request(Request,GrantType);
@@ -116,10 +116,10 @@ implicit_token_request(Request = #request{authorization = Authorization}) ->
 					Ttl = element(4,lists:nth(1,Response)),
 					Type = element(10,lists:nth(1,Response)),
 					LocationPath = <<RedirectUri/binary,"?token=", Token/binary,"&state=",State/binary,"&token_type=",Type/binary,"&expires_in=",Ttl/binary>>,
-					redirect(Request, LocationPath);
+					redirect200(Request, LocationPath);
 				_ ->
 					LocationPath = <<RedirectUri/binary,"?error=access_denied&state=",State/binary>>,
-					redirect(Request, LocationPath)
+					redirect200(Request, LocationPath)
 				end;
 			
 		_ ->
@@ -171,14 +171,14 @@ password_grant(Request = #request{authorization = Authorization}) ->
 	
 %% Verifica a URI do Cliente e redireciona para a página de autorização - Implicit Grant e Authorization Code Grant
 %% URL de teste: GET http://127.0.0.1:2301/authorize?response_type=code&client_id=s6BhdRkqt3&state=xyz%20&redirect_uri=http%3A%2F%2Flocalhost%3A2301%2Fportal%2Findex.html   
-authorization_request(Request) ->
+authorization_request(Type,Request) ->
 	Id = ems_util:get_querystring(<<"client_id">>, <<>>,Request),
     RedirectUri = ems_util:get_querystring(<<"redirect_uri">>, <<>>, Request),
     State = ems_util:get_querystring(<<"state">>, <<>>, Request),
     Scope = ems_util:get_querystring(<<"scope">>, <<>>, Request),
     Resposta = case ?BACKEND:verify_redirection_uri(parse_client_id(Id), RedirectUri, []) of
 		{ok,_} ->
-			Data = <<"/login/index.html?response_type=code&client_id=", Id/binary,"&redirect_uri=", RedirectUri/binary,"&state=",State/binary,"&scope=",Scope/binary>>,
+			Data = <<"/login/index.html?response_type=", Type/binary,"&client_id=", Id/binary,"&redirect_uri=", RedirectUri/binary,"&state=",State/binary,"&scope=",Scope/binary>>,
 			{redirect, Data};
 		Error -> Error
 	end,
@@ -287,7 +287,6 @@ issue_token_and_refresh({ok, {_, Auth}}) ->
             {<<"token_type">>, TokenType}]};
 issue_token_and_refresh(_) -> 
 	{error, access_denied}.
-%>>>>>>> upstream/master
 
 issue_code({ok, {_, Auth}}) ->
 	{ok, {_, Response}} = oauth2:issue_code(Auth, []),

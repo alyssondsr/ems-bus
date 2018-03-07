@@ -183,13 +183,12 @@ Login.LoginSistemas = (function() {
 		
 		var baseUrl = protocol + '//' + window.location.hostname +':' + window.location.port; 
 		
-		var url = baseUrl + '/code_request?'+
+		var url = baseUrl + '/'+getRedirectUri()['response_type']+'_request?'+
 				 'client_id='+getRedirectUri()['client_id']+
 				 '&state='+getRedirectUri()['state']+
 				 '&redirect_uri='+getRedirectUri()['redirect_uri'];
 		$.ajax({
 			url: url,
-			alert("teste"),
 			crossDomain: true,
 			contentType: 'application/json',
 			beforeSend: function (xhr) {
@@ -214,12 +213,9 @@ Login.LoginSistemas = (function() {
 						urlBase=document.referrer;
 						urlBase=urlBase.split('/');
 						url=urlBase[0]+'//'+urlBase[2]+''+data.getResponseHeader("Location");
-						alert(url);
 					}else{
 						url=data.getResponseHeader("Location");
-						alert(url);
 					}
-					alert(url);
 					window.location.href=url;
 				}
 			}
